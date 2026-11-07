@@ -15,10 +15,7 @@ Against the official baseline on the validation period (7 Sep – 4 Oct 2026), m
 | **Our model** | **42.29** | **11.91** | **0.79** | **0.0922** | **0.3987** |
 | Improvement | 36% | 51% | Target about 0.80 | 19% | 12% |
 
-Two findings shaped the solution:
-
-1. **Simple beat complex.** Our first 89-feature model lost to "spot + median spread" on MAE. Cutting to 21 features with strong regularisation improved every metric.
-2. **Start from the spot price and predict only the difference.** The imbalance price is the spot price plus a balancing premium. The day-ahead spot price is public information: Nord Pool publishes it around 14:00 Finnish time the day before, so every market party has it when the forecast is made. The organisers' data rule allows it from that time, and our leakage test confirms we never read it earlier. The model then only has to predict the premium, which is usually small (median +25 €/MWh in up-regulation, −17 €/MWh in down-regulation). With the same inputs, this lowered MAE from 44.40 to 42.74.
+**Simple beat complex.** Our first 89-feature model lost to "spot + median spread" on MAE. Cutting to 21 features with strong regularisation improved every metric.
 
 The validation period also helped us choose the design, so its scores are optimistic.
 
