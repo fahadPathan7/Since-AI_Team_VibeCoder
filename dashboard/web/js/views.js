@@ -114,7 +114,7 @@ export function renderNow(root, ds, i) {
     <div class="grid split">
       <div class="card"><div class="card-head"><h2>Worth checking now</h2><span class="hint">${now.length ? "tap for details" : ""}</span></div>
         <div class="alerts">${now.length ? now.map((a) => alertCard(a, tz)).join("") :
-          `<div class="calm"><div class="badge">✓</div><b>Nothing for the coming hour</b></div>`}</div>
+      `<div class="calm"><div class="badge">✓</div><b>Nothing for the coming hour</b></div>`}</div>
         ${later.length ? `<div class="card-head mt"><h2 class="muted">Later today</h2><button class="btn ghost" id="to-next">Next 10 h →</button></div>
           <div class="alerts">${later.map((a) => alertCard(a, tz)).join("")}</div>` : ""}</div>
       <div class="card"><div class="card-head"><h2>Recent prices → coming hours</h2><span class="hint">last 2 h published · prices appear about an hour late · forecast from now</span></div>
@@ -242,7 +242,7 @@ export function renderHindsight(root, ds, i) {
       <div class="card"><div class="card-head"><h2>Forecast vs actual</h2><span class="hint">${(to - from) > 7 * 24 * HOUR ? "last 7 days of the range" : "the whole range"} · forecasts made 1 h and 6 h ahead · drag to zoom</span></div>
         <div class="chart tall" id="track"></div></div>
       <div class="grid cols-2 mt">
-        <div class="card"><div class="card-head"><h2>Error by hours ahead</h2><span class="hint">MAE €/MWh</span></div><div class="chart mid" id="byhour"></div></div>
+        <div class="card"><div class="card-head"><h2>MAE Error by hours ahead</h2><span class="hint">€/MWh</span></div><div class="chart mid" id="byhour"></div></div>
         <div class="card"><div class="card-head"><h2>Alerts → outcome</h2><span class="hint">each event once</span></div>
           <div class="tablewrap" style="max-height:250px;overflow:auto">${alertTable(hist, tz)}</div></div>
       </div>`;
@@ -321,8 +321,10 @@ export function renderInsights(root, ds, i) {
   heatmap(document.getElementById("heat"), days, Array.from({ length: 24 }, (_, h) => h), heat, { max: 0.4, color: c.high, name: "Spike risk above spot", marks, tz });
   barChart(document.getElementById("width"), ["Narrowest", "2", "3", "4", "Widest"], mae, { name: "", color: c.warn });
   const chart = reliabilityChart(document.getElementById("rel"), rel("hi"), { color: c.high });
-  chart.setOption({ legend: { show: true, top: 0, right: 0, data: ["▲ Spikes above spot", "▼ Spikes below spot"], textStyle: { color: c.muted } },
-    series: [{}, { name: "▲ Spikes above spot" }, { name: "▼ Spikes below spot", type: "line", data: rel("lo"), symbol: "circle", lineStyle: { color: c.low }, itemStyle: { color: c.low }, symbolSize: 8 }] });
+  chart.setOption({
+    legend: { show: true, top: 0, right: 0, data: ["▲ Spikes above spot", "▼ Spikes below spot"], textStyle: { color: c.muted } },
+    series: [{}, { name: "▲ Spikes above spot" }, { name: "▼ Spikes below spot", type: "line", data: rel("lo"), symbol: "circle", lineStyle: { color: c.low }, itemStyle: { color: c.low }, symbolSize: 8 }]
+  });
   if (stats.length) {
     const kinds = ["spike_high", "spike_low", "direction_up"];
     const val = kinds.map((k) => { const s = stats.find((x) => x.kind === k && x.period === "Validation"); return s ? +(s.inside / s.overall).toFixed(2) : null; });
