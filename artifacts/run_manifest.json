@@ -1,5 +1,5 @@
 {
-  "created_utc": "2026-11-07T13:47:19.499219+00:00",
+  "created_utc": "2026-11-07T14:07:23.575812+00:00",
   "train_cutoff": "2026-10-04T21:00:00+00:00",
   "train_rows": 117860,
   "last_training_label_usable": "2026-10-04T21:00:00+00:00",
@@ -244,7 +244,7 @@
   "source_sha256": {
     "src/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "src/asof.py": "08c062456e00a19890f17fef9388636a5492d98c79ac70abb745b6dc1b3352f4",
-    "src/config.py": "42038b8405fda7a9e63122a178e8e93985c1aeb9d3f4c89b6d21f9a4309b6964",
+    "src/config.py": "fd3db83b9b4b6e126c4881aeadb6392eb0ab97332f2a6c6358f8c6c70c4024ec",
     "src/features.py": "221f426f8e66cf2d1458220c1281f82319683f237a37ec17e33db53854f268e4",
     "src/make_wide.py": "3e5012b4ffeb9de2725ebf2922f058e747b2deced89f7cf3139e98a9252f0f2e",
     "src/models.py": "def084d5cbe2e9c2da7cca3a92827705a15aa65caa76970568833f7f91d18fb9",

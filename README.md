@@ -2,7 +2,7 @@
 
 Forecast of the Finnish imbalance price for the next 10 hours in 15-minute steps. Outputs are `p10`, `p50`, `p90`, regulation direction, exceptional price probabilities and main drivers.
 
-The forecast file is `outputs/forecast_backtest.csv`. The report is `docs/evaluation_report.pdf`, and data sources and licences are in `docs/components.md`.
+The forecast file is `outputs/forecast_backtest.csv`. The report is `docs/evaluation_report.pdf`, and data sources and licences are in `docs/components.md`. The dashboard and API are in `dashboard/` (run locally with `python -m dashboard`), and AWS hosting is in `infra/`.
 
 ## Setup
 
@@ -36,6 +36,14 @@ python -m src.run final
 | `src.run folds` | Trains and scores three time folds | Within 1.5% of the values in `src/config.py` |
 | `src.run validation` | Scores 7 Sep - 4 Oct with the official validator and scorer | Within the limits in `src/config.py` |
 | `src.run final` | Trains on data up to the cut-off and writes the test forecast | Official validator passes |
+
+To open the dashboard and API at http://127.0.0.1:8000:
+
+```bash
+python -m dashboard
+```
+
+`dashboard/README.md` describes the views, the alerts and how to forecast from your own files. `infra/README.md` describes hosting on AWS.
 
 To rerun the analysis after these commands:
 
@@ -71,7 +79,7 @@ This period was also used to choose the design, so the score is optimistic.
 - Features read each source at its last row with `first_usable_origin_utc` at or before the origin. All data access goes through `src/asof.py`.
 - `tests/test_leakage.py` replaces every value not yet usable at an origin with garbage and checks that the features don't change. It covers validation and test origins, including the 25 Oct clock change.
 - Labels are blank unless usable by `2026-10-04T21:00:00Z`. The final model trains on 117,860 rows, and the last delivery is 2026-10-04 19:45 UTC.
-- All design choices were made on folds with labels usable by 4 Oct. An earlier version of the forecast was checked once against the package's test-period prices; the later tuning used only the folds, and the final forecast was not scored on the test period.
+- All design choices were made on folds with labels usable by 4 Oct. An earlier version of the forecast was checked once against the package's test-period prices, and the later tuning used only the folds. After the final forecast was frozen, it was scored against the test-period prices to judge the result, and the dashboard's hindsight views show those outcomes. Nothing was changed because of these checks.
 
 ## Data
 
@@ -116,7 +124,9 @@ The wide file is not the training table. One wide row holds values from a single
 
 ```text
 src/         code: config, make_wide, asof, features, models, submission, run
-tests/       leakage and data tests
+tests/       leakage, data and dashboard tests
+dashboard/   dashboard page, API, alerts and forecast runs on uploaded files
+infra/       Terraform and deploy script for AWS
 notebooks/   exploratory analysis and validation diagnostics
 docs/        report, component list, charts, measured values
 data/        input files

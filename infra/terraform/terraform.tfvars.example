@@ -1,0 +1,5 @@
+region = "eu-north-1"
+
+# Optional browser password for the whole site; leave the password empty for an open site
+basic_auth_user     = "judge"
+basic_auth_password = ""

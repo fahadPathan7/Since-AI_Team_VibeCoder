@@ -22,6 +22,7 @@ The forecast and its code use no external services or APIs at run time.
 | Service | Use | Usage rights |
 |---|---|---|
 | Claude Code (Anthropic) | AI assistant for coding, analysis and writing during development. It isn't part of the forecast | Anthropic commercial terms |
+| Amazon Web Services: CloudFront, S3, Lambda, ECR, IAM, CloudWatch Logs | Optional hosting of the dashboard and API (`infra/`). Not needed to produce the forecast | AWS Customer Agreement |
 
 ## Ready-made models
 
@@ -52,6 +53,17 @@ None. We use no pre-trained models. Every model is trained from the starter pack
 | nbformat | 5.11.1 | Notebook format | BSD-3-Clause |
 | ipykernel | 7.4.0 | Notebook kernel | BSD-3-Clause |
 | libomp (LLVM OpenMP) | 23.1.5 | Parallel computing for LightGBM on macOS | MIT, as listed by Homebrew |
+| FastAPI | 0.162.2 | Dashboard API | MIT |
+| Uvicorn | 0.54.0 | Local web server | BSD-3-Clause |
+| Pydantic | 2.14.3 | API request checks | MIT |
+| HTTPX | 0.28.1 | API tests | BSD-3-Clause |
+| Mangum | 0.22.0 | Runs the API on AWS Lambda | MIT |
+| AWS Lambda Python Runtime Interface Client | 4.2.3 | Lambda container entry point | Apache-2.0 |
+| boto3 | 1.43.126 | S3 and Lambda calls on AWS | Apache-2.0 |
+| Apache ECharts | 5.6.0 | Dashboard charts, bundled in `dashboard/web/vendor/` | Apache-2.0 |
+| Docker image `python:3.14-slim` | 3.14 | Base of the Lambda image | PSF License for Python; Debian packages under their own licences |
+| Terraform | 1.16.5 | AWS infrastructure (`infra/`) | BUSL-1.1 |
+| Terraform AWS provider | 6.72.0 | AWS resources | MPL-2.0 |
 
 Other packages are installed automatically as dependencies of these, under their own licences.
 

@@ -3,3 +3,7 @@
 .DS_Store
 __pycache__/
 .pytest_cache/
+dashboard/runs/
+infra/terraform/.terraform/
+infra/terraform/*.tfstate*
+infra/terraform/terraform.tfvars
