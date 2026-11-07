@@ -47,9 +47,8 @@ function header() {
   const period = ds.period(S.i);
   const kind = ds.raw.meta.source === "upload" ? "upload" : period?.name === "Test" ? "test" : "val";
   const age = Math.round((o - cut) / 60000);
-  $("freshness").innerHTML = `<span class="tag ${kind}">${period ? period.name.toUpperCase() : "UPLOADED RUN"}</span>
-    <span class="tag" title="Latest measured data used by this forecast"><span class="dot"></span>Data to <b>${fmtTime(cut, S.tz)}</b> · ${age} min old</span>
-    <span class="tag" title="${period ? period.model : "Final model"}">${kind === "val" ? "Model trained to 6 Sep" : "Final model · trained to 4 Oct"}</span>`;
+  $("freshness").innerHTML = `<span class="tag" title="Latest measured data used by this forecast"><span class="dot"></span>Data to <b>${fmtTime(cut, S.tz)}</b> · ${age} min old</span>
+    <span class="tag" title="${period ? period.model : "Final model"}">${kind === "upload" ? "Uploaded run · final model" : kind === "val" ? "Model trained to 6 Sep" : "Final model · trained to 4 Oct"}</span>`;
   $("dataset").innerHTML = S.datasets.map((d, k) => `<option value="${k}" ${k === S.ds ? "selected" : ""}>${d.label}</option>`).join("");
   document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.view === S.view));
   }

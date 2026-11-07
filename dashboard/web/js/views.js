@@ -100,16 +100,16 @@ export function renderNow(root, ds, i) {
         <div class="big">${lastKnown ? eur(lastKnown[1]) : "–"}<small>€/MWh</small></div>
         <div class="foot">${lastKnown ? `for ${fmtTime(lastKnown[0], tz)} · ${Math.round((origin - lastKnown[0]) / 60000)} min ago` : "none published yet"}</div></div>
       <div class="card tile ${hi.hi >= 0.25 ? "accent-high" : ""}"><div class="label">▲ Spike risk above spot ${info("Highest chance this hour that the price is over 50 €/MWh above spot. The tick marks the typical level.")}</div>
-        <div class="big">${pct(hi.hi)}</div><div class="foot">at ${fmtTime(hi.t, tz)} · typical ${pct(rates.high)}</div><div class="gauge" id="g-hi"></div></div>
+        <div class="big">${pct(hi.hi)}</div><div class="foot">highest this hour, at ${fmtTime(hi.t, tz)} · typical ${pct(rates.high)}</div><div class="gauge" id="g-hi"></div></div>
       <div class="card tile ${lo.lo >= 0.35 ? "accent-low" : ""}"><div class="label">▼ Spike risk below spot ${info("Highest chance this hour that the price is over 50 €/MWh below spot.")}</div>
-        <div class="big">${pct(lo.lo)}</div><div class="foot">at ${fmtTime(lo.t, tz)} · typical ${pct(rates.low)}</div><div class="gauge" id="g-lo"></div></div>
+        <div class="big">${pct(lo.lo)}</div><div class="foot">highest this hour, at ${fmtTime(lo.t, tz)} · typical ${pct(rates.low)}</div><div class="gauge" id="g-lo"></div></div>
       <div class="card tile"><div class="label">Regulation this hour ${info("Average p_up, p_down and p_none over the coming hour, as in the forecast file.")}</div>
         <div class="big"><span class="arrow" style="background:${mix(up >= down ? "--up" : "--down", 0.25)};color:var(${up >= down ? "--up" : "--down"})">${up >= down ? "▲" : "▼"}</span>${up >= down ? "Up" : "Down"}</div>
         <div class="meter"><i style="width:${up * 100}%;background:var(--up)"></i><i style="width:${down * 100}%;background:var(--down)"></i><i style="width:${none * 100}%;background:var(--faint)"></i></div>
-        <div class="foot">up ${pct(up)} · down ${pct(down)} · none ${pct(none, 1)}</div></div>
+        <div class="foot">average this hour: up ${pct(up)} · down ${pct(down)} · none ${pct(none, 1)}</div></div>
       <div class="card tile"><div class="label">Uncertainty this hour ${info("Average width of the P10–P90 range for the coming hour. Wider means the model is less sure.")}</div>
         <div class="big">${eur(avg("p90") - avg("p10"))}<small>€ wide</small></div>
-        <div class="foot">P10–P90 ${eur(Math.min(...hour.map((r) => r.p10)))} to ${eur(Math.max(...hour.map((r) => r.p90)))}</div></div>
+        <div class="foot">average width this hour · lowest P10 ${eur(Math.min(...hour.map((r) => r.p10)))}, highest P90 ${eur(Math.max(...hour.map((r) => r.p90)))}</div></div>
     </div>
     <div class="grid split">
       <div class="card"><div class="card-head"><h2>Worth checking now</h2><span class="hint">${now.length ? "tap for details" : ""}</span></div>
