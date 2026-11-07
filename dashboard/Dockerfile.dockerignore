@@ -1,0 +1,11 @@
+*
+!src/**
+!organiser/validate_submission.py
+!organiser/score.py
+!artifacts/models/final_models.joblib
+!artifacts/run_manifest.json
+!dashboard/*.py
+!dashboard/requirements.txt
+!dashboard/feature_quantiles.json
+!dashboard/web/data/**
+**/__pycache__

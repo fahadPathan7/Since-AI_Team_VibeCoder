@@ -21,6 +21,8 @@ def files():
 
 # A run on the raw files must reproduce the submitted forecast rows exactly
 def test_upload_run_matches_submitted_forecast(files):
+    if not (OUTPUTS / "forecast_backtest.csv").exists():
+        pytest.skip("outputs/forecast_backtest.csv is missing; run python -m src.run final first")
     table, payload, report = run_forecast(files["inputs"], files["spot"], ("origins.csv", ORIGINS.encode()))
     assert report["validator_passed"] and report["origins_forecast"] == 2
     assert "72 h of history" in report["skipped"][0]["reason"]

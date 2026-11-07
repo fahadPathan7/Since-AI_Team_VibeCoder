@@ -12,6 +12,38 @@ Live dashboard (ValoBalance): https://d33zptc1t0y8ga.cloudfront.net
 | Dashboard and API (ValoBalance) | `dashboard/`, run locally with `python -m dashboard` |
 | AWS hosting | `infra/` |
 
+## Quick start with Docker (no Python setup)
+
+Needs only Docker Desktop (Windows, macOS) or Docker Engine (Linux). Works on Intel/AMD and Apple Silicon machines. Run from this folder.
+
+**1. Build the image** (once, about 3–5 minutes):
+
+```bash
+docker build -t turku-forecast .
+```
+
+**2. Run every step of the pipeline**, from the organiser files to the validated test forecast (about 15–20 minutes):
+
+```bash
+docker run --rm -v "$PWD/outputs:/app/outputs" turku-forecast
+```
+
+On Windows PowerShell, use `-v "${PWD}/outputs:/app/outputs"`. The forecast is written to `outputs/forecast_backtest.csv`, and the run prints each check (baseline, tests, folds, validation score, official validator).
+
+**3. Open the dashboard (ValoBalance):**
+
+The dashboard is hosted on AWS, so nothing needs to be installed: **https://d33zptc1t0y8ga.cloudfront.net**
+
+To run it locally instead:
+
+```bash
+docker run --rm -p 8000:8000 turku-forecast python -m dashboard --host 0.0.0.0
+```
+
+Then open http://localhost:8000. The local version also shows the spot price, which the hosted version leaves out because of its licence.
+
+To run a single step, add the command at the end, for example `docker run --rm turku-forecast python -m pytest tests/ -q`.
+
 ## Setup
 
 Python 3.11 or newer. Tested on macOS with Python 3.14. On macOS, LightGBM also needs `libomp`.
