@@ -109,7 +109,11 @@ window.addDataset = (raw, label) => {
 // Load the precomputed periods and restore the view and time from the address
 async function start() {
   $("view").innerHTML = `<div class="card">Loading forecasts…</div>`;
-  const raw = await (await fetch("data/dashboard.json")).json();
+  const [raw, spot] = await Promise.all([
+    fetch("data/dashboard.json").then((r) => r.json()),
+    fetch("api/spot").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+  ]);
+  if (spot) window.spotAt = (t) => spot.values[Math.round((t - spot.t0) / spot.step)] ?? null;
   S.datasets.push(new Dataset(raw, "Validation + test periods"));
   const [view, iso] = location.hash.slice(1).split("/");
   if (VIEWS[view]) S.view = view;

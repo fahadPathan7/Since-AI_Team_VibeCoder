@@ -9,18 +9,22 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from dashboard import jobs
+from src.config import DATA
 from dashboard.settings import LONG_COLUMNS, MAX_ORIGINS, ORIGIN_COLUMN, ORIGIN_SECRET, REQUIRED_SERIES, UPLOAD_LIMIT_MB, WEB, WEB_DATA
 
 app = FastAPI(title="Imbalance price forecast API", version="1.0", docs_url="/api/docs", openapi_url="/api/openapi.json",
               description="Read the precomputed forecasts and alerts, or run the model on uploaded starter-package files.")
 
 
-# On AWS, accept only requests that came through CloudFront
+# On AWS, accept only requests from CloudFront; always revalidate page files so changes show at once
 @app.middleware("http")
 async def origin_check(request: Request, call_next):
     if ORIGIN_SECRET and request.headers.get("x-origin-verify") != ORIGIN_SECRET:
         return JSONResponse({"detail": "Forbidden"}, status_code=403)
-    return await call_next(request)
+    response = await call_next(request)
+    if not request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-cache"
+    return response
 
 
 # The precomputed dashboard data, loaded once
@@ -93,6 +97,23 @@ def alerts(origin: str = Query(..., examples=["2026-10-05T06:00:00Z"])):
     data, i = precomputed(), origin_index(origin)
     return {"forecast_origin_utc": iso(data["origins"][i]),
             "alerts": [{**a, "start": iso(a["start"]), "end": iso(a["end"])} for a in data["alerts"][i]]}
+
+
+# Day-ahead spot prices from the local data folder; licensed data, so the AWS image has none and this returns 404
+@app.get("/api/spot", summary="Spot prices, only where the licensed data is present locally")
+def spot():
+    return spot_series()
+
+
+# The spot series, read once
+@lru_cache(maxsize=1)
+def spot_series():
+    path = DATA / "inputs_wide.csv"
+    if not path.exists():
+        raise HTTPException(404, "Spot prices are only available in the local version")
+    values = pd.read_csv(path, usecols=["timestamp_utc", "fi_spot_price"])
+    start = pd.Timestamp(values["timestamp_utc"].iloc[0])
+    return {"t0": int(start.value // 10**6), "step": 900000, "values": [None if pd.isna(v) else round(float(v), 2) for v in values["fi_spot_price"]]}
 
 
 # Files and origins for a forecast run

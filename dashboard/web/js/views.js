@@ -1,9 +1,9 @@
 import { Q, HOUR, fmt, fmtTime, fmtDay, fmtFull, pct, eur, esc, scoreWindow, alertHistory } from "./data.js";
-import { priceChart, riskChart, directionChart, trackChart, barChart, heatmap, reliabilityChart, gaugeChart, sparkChart, colors, draw } from "./charts.js";
+import { priceChart, riskChart, directionChart, trackChart, barChart, heatmap, reliabilityChart, gaugeChart, contextChart, colors, draw } from "./charts.js";
 
 const KIND = {
-  spike_high: { name: "High-price risk", icon: "▲", color: "--high" },
-  spike_low: { name: "Low-price risk", icon: "▼", color: "--low" },
+  spike_high: { name: "Spike risk above spot", icon: "▲", color: "--high" },
+  spike_low: { name: "Spike risk below spot", icon: "▼", color: "--low" },
   direction_up: { name: "Up-regulation", icon: "⇡", color: "--up" },
   conflict: { name: "Conflicting signals", icon: "⇄", color: "--warn" },
   moved: { name: "Forecast moved", icon: "↕", color: "--accent" },
@@ -25,25 +25,25 @@ function hindsight(ds, rows, show) {
 // Overall state for the next 10 hours, from the alerts shown
 function overall(alerts) {
   const has = (k) => alerts.find((a) => a.kind === k);
-  if (has("spike_high")) return { word: "High-price risk", icon: "▲", color: "--high", why: has("spike_high").title };
-  if (has("spike_low")) return { word: "Low-price risk", icon: "▼", color: "--low", why: has("spike_low").title };
+  if (has("spike_high")) return { word: "Spike risk ▲", icon: "▲", color: "--high", why: has("spike_high").title };
+  if (has("spike_low")) return { word: "Spike risk ▼", icon: "▼", color: "--low", why: has("spike_low").title };
   if (alerts.length) return { word: "Watch", icon: "◎", color: "--warn", why: alerts[0].title };
   return { word: "Calm", icon: "✓", color: "--ok", why: "Nothing unusual in the next 10 hours" };
 }
 
-// Colour lanes: one cell per quarter-hour for high risk, low risk and direction
+// Colour lanes: one cell per quarter-hour for direction and the two spike risks
 function lanes(rows, tz) {
   const cell = (r, bg, tip) => `<i style="background:${bg}" title="${fmtTime(r.t, tz)} · ${tip}"></i>`;
   const lane = (name, cells) => `<div class="lane"><div class="name">${name}</div><div class="cells">${cells}</div></div>`;
-  const hi = rows.map((r) => cell(r, mix("--high", r.hi / 0.45), `high-price risk ${pct(r.hi)}`)).join("");
-  const lo = rows.map((r) => cell(r, mix("--low", r.lo / 0.55), `low-price risk ${pct(r.lo)}`)).join("");
+  const hi = rows.map((r) => cell(r, mix("--high", r.hi / 0.45), `spike above spot ${pct(r.hi)}`)).join("");
+  const lo = rows.map((r) => cell(r, mix("--low", r.lo / 0.55), `spike below spot ${pct(r.lo)}`)).join("");
   const dir = rows.map((r) => cell(r, r.up >= 0.5 ? mix("--up", (r.up - 0.5) * 4) : mix("--down", (0.5 - r.up) * 4),
     `up ${pct(r.up)} · down ${pct(r.down)}`)).join("");
   const hours = Array.from({ length: rows.length / 4 }, (_, h) => `<span>${fmtTime(rows[h * 4].t, tz)}</span>`).join("");
-  return `${lane("▲ High price", hi)}${lane("▼ Low price", lo)}${lane("Direction", dir)}
+  return `${lane("Direction", dir)}${lane("▲ Spike above", hi)}${lane("▼ Spike below", lo)}
     <div class="hours"><span></span><div>${hours}</div></div>
-    <div class="legend"><span style="--c:var(--high)">High-price risk</span><span style="--c:var(--low)">Low-price risk</span>
-    <span style="--c:var(--up)">Up-regulation</span><span style="--c:var(--down)">Down-regulation</span><span class="hint">Stronger colour = more likely</span></div>`;
+    <div class="legend"><span style="--c:var(--up)">Up-regulation</span><span style="--c:var(--down)">Down-regulation</span>
+    <span style="--c:var(--high)">Spike &gt; 50 € above spot</span><span style="--c:var(--low)">Spike &gt; 50 € below spot</span><span class="hint">Stronger colour = more likely</span></div>`;
 }
 
 // One alert: a compact line that opens to the message, drivers and suggestions
@@ -60,49 +60,70 @@ function alertCard(a, tz) {
   </details>`;
 }
 
-// What is worth checking right now
+// One quarter-hour of the coming hour: price, range, risks and direction
+function quarterCard(r, tz) {
+  const dirUp = r.up >= r.down;
+  const spot = window.spotAt ? window.spotAt(r.t) : null;
+  return `<div class="q">
+    <div class="qt">${fmtTime(r.t, tz)}</div>
+    <div class="qp">${eur(r.p50)}<small>€/MWh</small></div>
+    <div class="qr">P10–P90 ${eur(r.p10)} to ${eur(r.p90)}${spot != null ? ` · spot ${eur(spot)}` : ""}</div>
+    <div class="qb">
+      <span style="background:${mix("--high", r.hi / 0.45)}" title="Chance of a spike more than 50 €/MWh above spot">▲ ${pct(r.hi)}</span>
+      <span style="background:${mix("--low", r.lo / 0.55)}" title="Chance of a spike more than 50 €/MWh below spot">▼ ${pct(r.lo)}</span>
+      <span style="background:${mix(dirUp ? "--up" : "--down", Math.abs(r.up - 0.5) * 4)}" title="Regulation direction">${dirUp ? "Up" : "Down"} ${pct(dirUp ? r.up : r.down)}</span>
+    </div></div>`;
+}
+
+// What is worth checking right now: the coming hour only
 export function renderNow(root, ds, i) {
-  const tz = window.state.tz, rows = ds.rows(i), alerts = ds.alerts(i), rates = ds.raw.base_rates, c = colors();
-  const st = overall(alerts);
-  const top = (k) => rows.reduce((a, b) => (b[k] > a[k] ? b : a));
-  const hi = top("hi"), lo = top("lo");
-  const up = rows.reduce((a, r) => a + r.up, 0) / rows.length;
-  const width = rows.reduce((a, r) => a + (r.p90 - r.p10), 0) / rows.length;
-  const yI = ds.index.get(ds.origins[i] - 24 * HOUR);
-  const yWidth = yI !== undefined ? ds.rows(yI).reduce((a, r) => a + (r.p90 - r.p10), 0) / rows.length : null;
-  const minP = Math.min(...rows.map((r) => r.p50)), maxP = Math.max(...rows.map((r) => r.p50));
-  const prevI = ds.index.get(ds.origins[i] - HOUR);
-  const prev = prevI !== undefined ? ds.rows(prevI).filter((r) => r.t >= rows[0].t) : null;
+  const tz = window.state.tz, rows = ds.rows(i), origin = ds.origins[i], rates = ds.raw.base_rates, c = colors();
+  const hour = rows.slice(0, 4);
+  const all = ds.alerts(i);
+  const now = all.filter((a) => a.start < origin + HOUR);
+  const later = all.filter((a) => a.start >= origin + HOUR);
+  const st = now.length ? overall(now) : { word: "Calm", icon: "✓", color: "--ok", why: later.length ? `Next: ${later[0].title}` : "Nothing unusual ahead" };
+  const avg = (k) => hour.reduce((a, r) => a + r[k], 0) / hour.length;
+  const hi = hour.reduce((a, b) => (b.hi > a.hi ? b : a)), lo = hour.reduce((a, b) => (b.lo > a.lo ? b : a));
+  const up = avg("up"), down = avg("down"), none = avg("none");
+  const past = [];
+  for (let t = origin - 6 * HOUR; t < origin; t += Q) { const a = ds.outcome(t, origin); if (a) past.push([t, a.price]); }
+  const lastKnown = past.length ? past[past.length - 1] : null;
   root.innerHTML = `
     <div class="card hero" style="--state:var(${st.color})">
       <div class="state"><div class="badge">${st.icon}</div><div><div class="word">${st.word}</div><div class="why">${esc(st.why)}</div></div></div>
-      <div class="lanes">${lanes(rows, tz)}</div>
+      <div class="quarters">${hour.map((r) => quarterCard(r, tz)).join("")}</div>
     </div>
     <div class="tiles">
-      <div class="card tile"><div class="label">Price, P50</div><div class="big">${eur(minP)}–${eur(maxP)}<small>€/MWh</small></div><div class="spark" id="spark"></div></div>
-      <div class="card tile ${hi.hi >= 0.25 ? "accent-high" : ""}"><div class="label">▲ High-price risk ${info("Chance the price is over 50 €/MWh above spot in the riskiest quarter-hour. The tick marks the typical level.")}</div>
-        <div class="big">${pct(hi.hi)}</div><div class="foot">${fmtTime(hi.t, tz)} · typical ${pct(rates.high)}</div><div class="gauge" id="g-hi"></div></div>
-      <div class="card tile ${lo.lo >= 0.35 ? "accent-low" : ""}"><div class="label">▼ Low-price risk ${info("Chance the price is over 50 €/MWh below spot in the riskiest quarter-hour.")}</div>
-        <div class="big">${pct(lo.lo)}</div><div class="foot">${fmtTime(lo.t, tz)} · typical ${pct(rates.low)}</div><div class="gauge" id="g-lo"></div></div>
-      <div class="card tile"><div class="label">Regulation</div>
-        <div class="big"><span class="arrow" style="background:${mix(up >= 0.5 ? "--up" : "--down", 0.25)};color:var(${up >= 0.5 ? "--up" : "--down"})">${up >= 0.5 ? "▲" : "▼"}</span>${up >= 0.5 ? "Up" : "Down"}</div>
-        <div class="meter"><i style="width:${up * 100}%;background:var(--up)"></i><i style="width:${(1 - up) * 100}%;background:var(--down)"></i></div>
-        <div class="foot">up ${pct(up)} · down ${pct(1 - up)}</div></div>
-      <div class="card tile ${yWidth && width > yWidth * 1.25 ? "accent-warn" : ""}"><div class="label">Uncertainty ${info("Average width of the P10–P90 range. Wider means the model is less sure.")}</div>
-        <div class="big">${eur(width)}<small>€ wide</small></div>
-        <div class="foot">${yWidth ? `${width >= yWidth ? "▲" : "▼"} ${pct(Math.abs(width / yWidth - 1))} vs yesterday` : "P10–P90"}</div></div>
+      <div class="card tile"><div class="label">Last published price ${info("The most recent actual imbalance price known at this moment. Prices are published with about an hour's delay.")}</div>
+        <div class="big">${lastKnown ? eur(lastKnown[1]) : "–"}<small>€/MWh</small></div>
+        <div class="foot">${lastKnown ? `for ${fmtTime(lastKnown[0], tz)} · ${Math.round((origin - lastKnown[0]) / 60000)} min ago` : "none published yet"}</div></div>
+      <div class="card tile ${hi.hi >= 0.25 ? "accent-high" : ""}"><div class="label">▲ Spike risk above spot ${info("Highest chance this hour that the price is over 50 €/MWh above spot. The tick marks the typical level.")}</div>
+        <div class="big">${pct(hi.hi)}</div><div class="foot">at ${fmtTime(hi.t, tz)} · typical ${pct(rates.high)}</div><div class="gauge" id="g-hi"></div></div>
+      <div class="card tile ${lo.lo >= 0.35 ? "accent-low" : ""}"><div class="label">▼ Spike risk below spot ${info("Highest chance this hour that the price is over 50 €/MWh below spot.")}</div>
+        <div class="big">${pct(lo.lo)}</div><div class="foot">at ${fmtTime(lo.t, tz)} · typical ${pct(rates.low)}</div><div class="gauge" id="g-lo"></div></div>
+      <div class="card tile"><div class="label">Regulation this hour ${info("Average p_up, p_down and p_none over the coming hour, as in the forecast file.")}</div>
+        <div class="big"><span class="arrow" style="background:${mix(up >= down ? "--up" : "--down", 0.25)};color:var(${up >= down ? "--up" : "--down"})">${up >= down ? "▲" : "▼"}</span>${up >= down ? "Up" : "Down"}</div>
+        <div class="meter"><i style="width:${up * 100}%;background:var(--up)"></i><i style="width:${down * 100}%;background:var(--down)"></i><i style="width:${none * 100}%;background:var(--faint)"></i></div>
+        <div class="foot">up ${pct(up)} · down ${pct(down)} · none ${pct(none, 1)}</div></div>
+      <div class="card tile"><div class="label">Uncertainty this hour ${info("Average width of the P10–P90 range for the coming hour. Wider means the model is less sure.")}</div>
+        <div class="big">${eur(avg("p90") - avg("p10"))}<small>€ wide</small></div>
+        <div class="foot">P10–P90 ${eur(Math.min(...hour.map((r) => r.p10)))} to ${eur(Math.max(...hour.map((r) => r.p90)))}</div></div>
     </div>
     <div class="grid split">
-      <div class="card"><div class="card-head"><h2>Worth checking</h2><span class="hint">${alerts.length ? `${alerts.length} · tap for details` : ""}</span></div>
-        <div class="alerts">${alerts.length ? alerts.map((a) => alertCard(a, tz)).join("") :
-          `<div class="calm"><div class="badge">✓</div><b>All clear</b><span class="small">No spike risk, conflict or unusual change ahead</span></div>`}</div></div>
-      <div class="card"><div class="card-head"><h2>Next 10 hours</h2><span class="hint">P50 · P10–P90 · dashed: previous update</span></div>
-        <div class="chart tall" id="now-price"></div></div>
+      <div class="card"><div class="card-head"><h2>Worth checking now</h2><span class="hint">${now.length ? "tap for details" : ""}</span></div>
+        <div class="alerts">${now.length ? now.map((a) => alertCard(a, tz)).join("") :
+          `<div class="calm"><div class="badge">✓</div><b>Nothing for the coming hour</b></div>`}</div>
+        ${later.length ? `<div class="card-head mt"><h2 class="muted">Later today</h2><button class="btn ghost" id="to-next">Next 10 h →</button></div>
+          <div class="alerts">${later.map((a) => alertCard(a, tz)).join("")}</div>` : ""}</div>
+      <div class="card"><div class="card-head"><h2>Last 6 hours → coming hour</h2><span class="hint">published prices, then the forecast</span></div>
+        <div class="chart tall" id="now-ctx"></div></div>
     </div>`;
-  sparkChart(document.getElementById("spark"), rows, { color: c.accent });
   gaugeChart(document.getElementById("g-hi"), hi.hi, { color: c.high, typical: rates.high });
   gaugeChart(document.getElementById("g-lo"), lo.lo, { color: c.low, typical: rates.low });
-  priceChart(document.getElementById("now-price"), rows, { tz, previous: prev });
+  contextChart(document.getElementById("now-ctx"), past, hour, { tz, origin });
+  const go = document.getElementById("to-next");
+  if (go) go.onclick = () => { window.state.view = "next"; window.render(); };
 }
 
 // Hourly heat table: colour carries the numbers, drivers in the tooltip
@@ -115,13 +136,13 @@ function hourTable(rows, tz) {
     const drivers = [...new Set(q.flatMap((r) => r.drivers))].slice(0, 3);
     const up = avg("up");
     out.push(`<tr title="Drivers: ${esc(drivers.join("; "))}"><td>${fmtTime(q[0].t, tz)}</td>
-      <td class="num"><b>${eur(avg("p50"))}</b></td><td class="num muted">${eur(Math.min(...q.map((r) => r.p10)))} – ${eur(max("p90"))}</td>
+      <td class="num"><b>${eur(avg("p50"))}</b></td>${window.spotAt ? `<td class="num" style="color:var(--accent-2)">${eur(q.reduce((a, r) => a + (window.spotAt(r.t) ?? 0), 0) / q.length)}</td>` : ""}<td class="num muted">${eur(Math.min(...q.map((r) => r.p10)))} – ${eur(max("p90"))}</td>
       <td class="heat" style="background:${mix("--high", max("hi") / 0.45)}">${pct(max("hi"))}</td>
       <td class="heat" style="background:${mix("--low", max("lo") / 0.55)}">${pct(max("lo"))}</td>
       <td class="heat" style="background:${up >= 0.5 ? mix("--up", (up - 0.5) * 4) : mix("--down", (0.5 - up) * 4)}">${up >= 0.5 ? "▲" : "▼"} ${pct(up >= 0.5 ? up : 1 - up)}</td>
       <td><span class="chip">${esc(drivers[0] || "")}</span></td></tr>`);
   }
-  return `<div class="tablewrap"><table><thead><tr><th>Hour</th><th class="num">P50</th><th class="num">P10–P90</th><th>▲ High</th><th>▼ Low</th>
+  return `<div class="tablewrap"><table><thead><tr><th>Hour</th><th class="num">P50</th>${window.spotAt ? `<th class="num">Spot</th>` : ""}<th class="num">P10–P90</th><th>▲ Spike above</th><th>▼ Spike below</th>
     <th>Direction</th><th>Top driver</th></tr></thead><tbody>${out.join("")}</tbody></table></div>`;
 }
 
@@ -141,14 +162,15 @@ export function renderNext(root, ds, i) {
   root.innerHTML = `
     <div class="toolbar">
       <label class="switch"><input type="checkbox" id="reveal" ${show ? "checked" : ""}> Show what happened ${info("Hindsight: adds the real price, spikes and direction that followed. They were not known when the forecast was made.")}</label>
-      <label class="switch"><input type="checkbox" id="showprev" ${window.state.showPrev ? "checked" : ""}> Previous update</label>
+      <label class="switch"><input type="checkbox" id="showprev" ${window.state.showPrev ? "checked" : ""}> Forecast 1 h earlier ${info("The forecast the same model made one hour before, for the same quarter-hours. A big gap means the outlook changed.")}</label>
       <span class="spacer"></span>
       <button class="btn ghost" id="dl">⤓ CSV</button>
     </div>
-    <div class="card"><div class="card-head"><h2>Imbalance price</h2><span class="hint">P50 · shaded P10–P90 (8 in 10 prices fall inside)</span></div>
+    <div class="card" style="margin-bottom:14px"><div class="card-head"><h2>Next 10 hours at a glance</h2><span class="hint">hover a cell for its value</span></div>${lanes(rows, tz)}</div>
+    <div class="card"><div class="card-head"><h2>Imbalance price</h2><span class="hint">blue: forecast now · shaded: P10–P90 (8 in 10 prices fall inside)${window.spotAt ? " · violet: spot" : ""} · dashed: forecast 1 h earlier</span></div>
       <div class="chart tall" id="next-price"></div></div>
     <div class="grid cols-2 mt">
-      <div class="card"><div class="card-head"><h2>Exceptional price risk</h2><span class="hint">▲ above / ▼ below spot by 50 € · dotted: typical</span></div>
+      <div class="card"><div class="card-head"><h2>Spike risk</h2><span class="hint">chance of a spike more than 50 €/MWh ▲ above or ▼ below spot · dotted: typical</span></div>
         <div class="chart mid" id="next-risk"></div></div>
       <div class="card"><div class="card-head"><h2>Regulation direction</h2><span class="hint">p_up · p_down · p_none, as in the forecast file</span></div>
         <div class="chart mid" id="next-dir"></div>${h.dir ? actualLane(rows, h.dir, tz) : ""}</div>
@@ -170,22 +192,37 @@ export function renderNext(root, ds, i) {
   };
 }
 
-const WINDOWS = { day: ["Day", 24], week: ["Week", 168], month: ["Month", 720] };
+const WINDOWS = { day: ["Last day", 24], week: ["Last week", 168], month: ["Last month", 720], custom: ["Custom", 0] };
+
+// Midnight in Finnish time for a yyyy-mm-dd date
+function finnishMidnight(date) {
+  const [y, m, d] = date.split("-").map(Number);
+  for (const offset of [3, 2]) {
+    const t = Date.UTC(y, m - 1, d) - offset * HOUR;
+    if (fmt(t, "Europe/Helsinki", { hour: "2-digit", hour12: false }) % 24 === 0) return t;
+  }
+  return Date.UTC(y, m - 1, d);
+}
+const isoDay = (t) => fmt(t, "Europe/Helsinki", { year: "numeric", month: "2-digit", day: "2-digit" }).split("/").reverse().join("-");
 
 // How the forecast performed, using only outcomes known at the selected time
 export function renderHindsight(root, ds, i) {
   const tz = window.state.tz, asOf = ds.origins[i], win = window.state.window, c = colors();
-  const from = asOf - WINDOWS[win][1] * HOUR;
-  const s = scoreWindow(ds, asOf, from);
-  const tabs = Object.entries(WINDOWS).map(([k, [label]]) => `<button data-w="${k}" class="${k === win ? "on" : ""}">Last ${label.toLowerCase()}</button>`).join("");
-  const head = `<div class="toolbar"><div class="seg" id="win">${tabs}</div>
+  const custom = window.state.custom || { from: isoDay(asOf - 3 * 24 * HOUR), to: isoDay(asOf) };
+  const from = win === "custom" ? finnishMidnight(custom.from) : asOf - WINDOWS[win][1] * HOUR;
+  const to = win === "custom" ? Math.min(asOf, finnishMidnight(custom.to) + 24 * HOUR) : asOf;
+  const s = from < to ? scoreWindow(ds, asOf, from, to) : null;
+  const tabs = Object.entries(WINDOWS).map(([k, [label]]) => `<button data-w="${k}" class="${k === win ? "on" : ""}">${label}</button>`).join("");
+  const picker = win === "custom" ? `<label class="small muted">From <input type="date" id="c-from" value="${custom.from}" max="${custom.to}"></label>
+    <label class="small muted">to <input type="date" id="c-to" value="${custom.to}" min="${custom.from}" max="${isoDay(asOf)}"></label>` : "";
+  const head = `<div class="toolbar"><div class="seg" id="win">${tabs}</div>${picker}
     <span class="hint">Only prices published by ${fmtFull(asOf, tz)} ${info("As a user would have seen it then: outcomes published after this time are not used.")}</span></div>`;
   if (!s) {
     root.innerHTML = head + `<div class="card calm"><div class="badge">…</div>No published outcomes yet. Move the time later.</div>`;
   } else {
-    const hist = alertHistory(ds, asOf, from).filter((a) => ["spike_high", "spike_low", "direction_up"].includes(a.kind)).slice(0, 14);
+    const hist = alertHistory(ds, asOf, from, to).filter((a) => ["spike_high", "spike_low", "direction_up"].includes(a.kind)).slice(0, 14);
     const points = [];
-    for (let t = Math.max(from, asOf - 7 * 24 * HOUR); t < asOf; t += Q) {
+    for (let t = Math.max(from, to - 7 * 24 * HOUR); t < to; t += Q) {
       const a = ds.outcome(t, asOf);
       if (!a) continue;
       const f1 = ds.aheadRow(t, 1), f6 = ds.aheadRow(t, 6);
@@ -198,10 +235,10 @@ export function renderHindsight(root, ds, i) {
         <div class="card tile"><div class="label">Coverage ${info("Share of prices inside P10–P90. Target about 80%.")}</div><div class="big" style="color:var(${covGood ? "--ok" : "--warn"})">${pct(s.coverage)}</div>
           <div class="meter"><i style="width:${s.coverage * 100}%;background:var(${covGood ? "--ok" : "--warn"})"></i></div><div class="foot">target 80%</div></div>
         <div class="card tile"><div class="label">Pinball ${info("Mean pinball loss of P10 and P90. Lower is better.")}</div><div class="big">${eur(s.pinball, 2)}</div><div class="foot">P10 + P90</div></div>
-        <div class="card tile"><div class="label">Spike Brier ${info("Brier score of the high and low price probabilities. Lower is better.")}</div><div class="big">${s.spike.toFixed(3)}</div><div class="foot">high + low</div></div>
+        <div class="card tile"><div class="label">Spike Brier ${info("Brier score of the two spike probabilities (above and below spot). Lower is better.")}</div><div class="big">${s.spike.toFixed(3)}</div><div class="foot">above + below spot</div></div>
         <div class="card tile"><div class="label">Direction Brier ${info("Three-class Brier score of up, down and none. Lower is better.")}</div><div class="big">${s.direction.toFixed(3)}</div><div class="foot">up / down / none</div></div>
       </div>
-      <div class="card"><div class="card-head"><h2>Forecast vs actual</h2><span class="hint">last ${Math.min(7, WINDOWS[win][1] / 24)} days · forecasts made 1 h and 6 h ahead · drag to zoom</span></div>
+      <div class="card"><div class="card-head"><h2>Forecast vs actual</h2><span class="hint">${(to - from) > 7 * 24 * HOUR ? "last 7 days of the range" : "the whole range"} · forecasts made 1 h and 6 h ahead · drag to zoom</span></div>
         <div class="chart tall" id="track"></div></div>
       <div class="grid cols-2 mt">
         <div class="card"><div class="card-head"><h2>Error by hours ahead</h2><span class="hint">MAE €/MWh</span></div><div class="chart mid" id="byhour"></div></div>
@@ -212,6 +249,15 @@ export function renderHindsight(root, ds, i) {
     barChart(document.getElementById("byhour"), s.maeByHour.map((_, h) => `${h + 1}h`), s.maeByHour, { name: "", color: c.accent });
   }
   root.querySelectorAll("#win button").forEach((b) => (b.onclick = () => { window.state.window = b.dataset.w; window.render(); }));
+  for (const id of ["c-from", "c-to"]) {
+    const el = document.getElementById(id);
+    if (el) el.onchange = () => {
+      let from = document.getElementById("c-from").value, to = document.getElementById("c-to").value;
+      if (from && to && to < from) [from, to] = id === "c-from" ? [from, from] : [to, to];
+      window.state.custom = { from, to };
+      window.render();
+    };
+  }
 }
 
 // Past alerts with what followed
@@ -259,11 +305,11 @@ export function renderInsights(root, ds, i) {
   root.innerHTML = `
     <div class="tiles" style="grid-template-columns:repeat(3,minmax(0,1fr))">
       <div class="card tile"><div class="label">Wide band = big error</div><div class="big">${ratio ? `${ratio.toFixed(0)}×` : "–"}</div><div class="foot">MAE of widest vs narrowest fifth, last 30 days</div></div>
-      <div class="card tile"><div class="label">High-price alerts hit</div><div class="big" style="color:var(--high)">${best ? `${(best.inside / best.overall).toFixed(1)}×` : "–"}</div><div class="foot">more spikes inside alerts than average (test)</div></div>
-      <div class="card tile"><div class="label">Spikes caught in window</div><div class="big">${best ? pct(best.window_hit) : "–"}</div><div class="foot">of high-price alerts saw a spike (test)</div></div>
+      <div class="card tile"><div class="label">Spike-above alerts hit</div><div class="big" style="color:var(--high)">${best ? `${(best.inside / best.overall).toFixed(1)}×` : "–"}</div><div class="foot">more spikes inside alerts than average (test)</div></div>
+      <div class="card tile"><div class="label">Spikes caught in window</div><div class="big">${best ? pct(best.window_hit) : "–"}</div><div class="foot">of spike-above alerts saw a spike (test)</div></div>
     </div>
     <div class="grid cols-2">
-      <div class="card"><div class="card-head"><h2>When does high-price risk build?</h2><span class="hint">1 h ahead · last 30 days · dots: actual spikes</span></div><div class="chart tall" id="heat"></div></div>
+      <div class="card"><div class="card-head"><h2>When does spike risk above spot build?</h2><span class="hint">1 h ahead · last 30 days · dots: actual spikes</span></div><div class="chart tall" id="heat"></div></div>
       <div class="card"><div class="card-head"><h2>Wider band, bigger error</h2><span class="hint">MAE by band-width fifth</span></div><div class="chart tall" id="width"></div></div>
     </div>
     <div class="grid cols-2 mt">
@@ -271,11 +317,11 @@ export function renderInsights(root, ds, i) {
       <div class="card"><div class="card-head"><h2>Do alerts point to events?</h2><span class="hint">event rate inside alert ÷ overall rate</span></div><div class="chart" id="lift"></div></div>
     </div>
     <div class="card mt"><div class="card-head"><h2>What moves the price forecast</h2><span class="hint">mean SHAP contribution to P50, €/MWh</span></div><div class="chart" id="imp" style="height:400px"></div></div>`;
-  heatmap(document.getElementById("heat"), days, Array.from({ length: 24 }, (_, h) => h), heat, { max: 0.4, color: c.high, name: "High-price risk", marks, tz });
+  heatmap(document.getElementById("heat"), days, Array.from({ length: 24 }, (_, h) => h), heat, { max: 0.4, color: c.high, name: "Spike risk above spot", marks, tz });
   barChart(document.getElementById("width"), ["Narrowest", "2", "3", "4", "Widest"], mae, { name: "", color: c.warn });
   const chart = reliabilityChart(document.getElementById("rel"), rel("hi"), { color: c.high });
-  chart.setOption({ legend: { show: true, top: 0, right: 0, data: ["▲ High spikes", "▼ Low spikes"], textStyle: { color: c.muted } },
-    series: [{}, { name: "▲ High spikes" }, { name: "▼ Low spikes", type: "line", data: rel("lo"), symbol: "circle", lineStyle: { color: c.low }, itemStyle: { color: c.low }, symbolSize: 8 }] });
+  chart.setOption({ legend: { show: true, top: 0, right: 0, data: ["▲ Spikes above spot", "▼ Spikes below spot"], textStyle: { color: c.muted } },
+    series: [{}, { name: "▲ Spikes above spot" }, { name: "▼ Spikes below spot", type: "line", data: rel("lo"), symbol: "circle", lineStyle: { color: c.low }, itemStyle: { color: c.low }, symbolSize: 8 }] });
   if (stats.length) {
     const kinds = ["spike_high", "spike_low", "direction_up"];
     const val = kinds.map((k) => { const s = stats.find((x) => x.kind === k && x.period === "Validation"); return s ? +(s.inside / s.overall).toFixed(2) : null; });

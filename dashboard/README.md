@@ -22,10 +22,10 @@ python -m dashboard.build_data
 
 | View | What it answers |
 |---|---|
-| **Now** | What is worth checking now: headline numbers for the next 10 hours and alerts, each with drivers and suggestions to review |
-| **Next 10 hours** | P50 with the P10–P90 range, high and low price risk, up/down regulation, an hourly table with drivers, and a CSV download |
-| **Hindsight** | Scores for the previous day, week or month, forecast against actual for the last 7 days, error by horizon, and alerts with what followed |
-| **Insights** | When high-price risk concentrates, how interval width predicts error, whether the probabilities are honest, whether alerts mean something, and the main drivers |
+| **Now** | The coming hour only: each quarter-hour's P50, range, risks and direction, the last 6 hours of published prices, and the alerts that matter now. Later alerts are listed below them |
+| **Next 10 hours** | Colour lanes for direction and spike risk, P50 with the P10–P90 range, spike risk above and below spot, up/down/none regulation, an hourly table with drivers, and a CSV download |
+| **Hindsight** | Scores for the previous day, week, month or a custom date range, forecast against actual for the last 7 days, error by horizon, and alerts with what followed |
+| **Insights** | When spike risk above spot concentrates, how interval width predicts error, whether the probabilities are honest, whether alerts mean something, and the main drivers |
 | **Run a forecast** | Upload the starter package files and get a forecast, the official validator result and, when outcomes are in the data, the official score |
 | **About & API** | Model summary and API endpoints |
 
@@ -39,14 +39,14 @@ Each alert covers a window of consecutive quarter-hours, names the main drivers 
 
 | Alert | Trigger |
 |---|---|
-| High-price risk | `p_spike_high` ≥ 0.25. Marked when the risk rose by 0.10 or more since the previous update |
-| Low-price risk | `p_spike_low` ≥ 0.35 |
+| Spike risk above spot | `p_spike_high` ≥ 0.25 (price more than 50 €/MWh above spot). Marked when the risk rose by 0.10 or more since the forecast an hour earlier |
+| Spike risk below spot | `p_spike_low` ≥ 0.35 (price more than 50 €/MWh below spot) |
 | Up-regulation expected | `p_up` ≥ 0.60 for at least 30 minutes |
 | Conflicting signals | The direction model expects up-regulation while the price forecast is below spot, or down-regulation while it is more than 20 €/MWh above spot |
-| Forecast moved | P50 moved by 25 €/MWh or more since the previous update, for at least 30 minutes |
+| Forecast moved | P50 moved by 25 €/MWh or more since the forecast an hour earlier, for at least 30 minutes |
 | High uncertainty | P10–P90 width above the 95th percentile of the past week's forecasts |
 
-The thresholds were set once on the validation period, for about 1–2 alerts per update on average, and then frozen. **Insights** shows how often the event followed: inside high-price alerts, spikes happened 3.5 times as often as average on validation and 2.3 times as often on test.
+The thresholds were set once on the validation period, for about 1–2 alerts per update on average, and then frozen. **Insights** shows how often the event followed: inside spike-above alerts, spikes happened 3.5 times as often as average on validation and 2.3 times as often on test.
 
 ## Forecast from your own files
 
@@ -101,7 +101,9 @@ curl -o forecast.csv localhost:8000/api/jobs/<id>/forecast.csv
 
 ## Spot prices
 
-The model uses spot prices, but the page and the API never show them. The precomputed data contains forecasts, actual imbalance prices (Fingrid, CC BY 4.0), directions and whether a quarter-hour was a spike.
+The spot price is licensed for the hackathon only and may not be published. The local version draws it in the price chart as a reference line, read from `data/inputs_wide.csv` through `GET /api/spot`. The AWS image contains no `data/` folder, so the hosted site and its API never show spot prices. The precomputed data in `web/data/` contains forecasts, actual imbalance prices (Fingrid, CC BY 4.0), directions and whether a quarter-hour was a spike, but no spot prices.
+
+The day-ahead spot price is published the day before, so it is always known for the next 10 hours at a forecast time. Showing it is not hindsight.
 
 ## Files
 

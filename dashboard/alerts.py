@@ -18,7 +18,7 @@ REVIEW = {
                   "A long position left open into this window could be settled at a low price"],
     "direction_up": ["The system is likely to be short of power: worth checking the position and the production plan",
                      "Up-regulation usually prices above spot"],
-    "moved": ["Plans made on the previous forecast may need a re-check"],
+    "moved": ["Plans made on the forecast an hour earlier may need a re-check"],
     "uncertainty": ["The model is less sure than usual: keep a margin and recheck at the next update"],
     "conflict": ["The direction and price models disagree: worth an expert review before acting"],
 }
@@ -85,12 +85,13 @@ def origin_alerts(rows, previous, width_limit, typical):
         risen = (p - np.nan_to_num(prev_p, nan=p)) >= ALERTS["spike_rise"]
         for s, e in runs(p >= limit, 1):
             peak = p[s:e].max()
-            change = " The risk has increased since the previous update." if risen[s:e].any() else ""
+            change = " The risk has increased since the forecast an hour earlier." if risen[s:e].any() else ""
             unsure = " The forecast is also very uncertain." if uncertain[s:e].any() else ""
             drivers = ", ".join(window_drivers(rows["phrases"].iloc[s:e]))
-            message = (f"Risk of an exceptionally {word} price for {span(s, e)}: up to {peak:.0%} per quarter-hour, "
+            side = "above" if word == "high" else "below"
+            message = (f"Risk of a price spike more than 50 €/MWh {side} spot for {span(s, e)}: up to {peak:.0%} per quarter-hour, "
                        f"against a typical {base:.0%}.{change}{unsure} Main drivers: {drivers}.")
-            alerts.append(make_alert(kind, rows, s, e, f"{'High' if word == 'high' else 'Low'}-price risk {span(s, e)}", message, peak))
+            alerts.append(make_alert(kind, rows, s, e, f"Spike risk {side} spot {span(s, e)}", message, peak))
 
     # Expected up-regulation
     up = rows["p_up"].to_numpy()
@@ -109,11 +110,11 @@ def origin_alerts(rows, previous, width_limit, typical):
                    f"puts the price on the other side of spot.")
         alerts.append(make_alert("conflict", rows, s, e, f"Conflicting signals {span(s, e)}", message, max(up[s:e].max(), down[s:e].max())))
 
-    # Material change since the previous update
+    # Material change since the forecast an hour earlier
     moved = np.abs(rows["p50"].to_numpy() - prev_mid)
     for s, e in runs(np.nan_to_num(moved) >= ALERTS["moved_eur"], ALERTS["min_quarters"]):
         sign = "up" if np.nanmean(rows["p50"].to_numpy()[s:e] - prev_mid[s:e]) > 0 else "down"
-        message = f"The price forecast for {span(s, e)} moved {sign} by up to {np.nanmax(moved[s:e]):.0f} €/MWh since the previous update."
+        message = f"The price forecast for {span(s, e)} moved {sign} by up to {np.nanmax(moved[s:e]):.0f} €/MWh since the forecast an hour earlier."
         alerts.append(make_alert("moved", rows, s, e, f"Forecast moved {sign} {span(s, e)}", message, np.nanmax(moved[s:e])))
 
     # Unusually wide interval

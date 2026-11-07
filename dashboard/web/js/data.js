@@ -64,15 +64,15 @@ export class Dataset {
 // Pinball loss at one quantile
 const pinball = (y, q, a) => Math.max(a * (y - q), (a - 1) * (y - q));
 
-// Scores of forecasts whose outcomes were usable by asOf, for deliveries in [from, asOf)
-export function scoreWindow(ds, asOf, from) {
+// Scores of forecasts whose outcomes were usable by asOf, for deliveries in [from, to)
+export function scoreWindow(ds, asOf, from, to = asOf) {
   const m = { n: 0, ae: 0, pin: 0, cover: 0, spike: 0, dir: 0, byStep: Array.from({ length: ds.steps }, () => [0, 0]) };
   for (let i = 0; i < ds.origins.length; i++) {
     const o = ds.origins[i];
-    if (o >= asOf || o + ds.steps * Q <= from) continue;
+    if (o >= Math.min(asOf, to) || o + ds.steps * Q <= from) continue;
     const rows = ds.rows(i);
     for (const r of rows) {
-      if (r.t < from) continue;
+      if (r.t < from || r.t >= to) continue;
       const a = ds.outcome(r.t, asOf);
       if (!a) continue;
       const y = a.price;
@@ -98,12 +98,12 @@ export function scoreWindow(ds, asOf, from) {
   };
 }
 
-// The first alert of each distinct event among origins in [from, asOf], with what followed
-export function alertHistory(ds, asOf, from) {
+// The first alert of each distinct event among origins in [from, to], with what followed
+export function alertHistory(ds, asOf, from, to = asOf) {
   const seen = new Map();
   for (let i = 0; i < ds.origins.length; i++) {
     const o = ds.origins[i];
-    if (o < from || o > asOf) continue;
+    if (o < from || o > Math.min(asOf, to)) continue;
     for (const a of ds.alerts(i)) {
       const key = `${a.kind}:${Math.floor(a.start / (2 * HOUR))}`;
       if (!seen.has(key)) seen.set(key, { ...a, origin: o });

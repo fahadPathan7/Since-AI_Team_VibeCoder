@@ -7,7 +7,7 @@ export function colors() {
   const css = getComputedStyle(document.documentElement);
   const v = (n) => css.getPropertyValue(n).trim();
   return { text: v("--text"), muted: v("--muted"), line: v("--line"), accent: v("--accent"), band: v("--band"), high: v("--high"),
-    low: v("--low"), up: v("--up"), down: v("--down"), warn: v("--warn"), panel: v("--panel"), ok: v("--ok") };
+    low: v("--low"), up: v("--up"), down: v("--down"), warn: v("--warn"), panel: v("--panel"), ok: v("--ok"), spot: v("--accent-2") };
 }
 
 // Draw or redraw a chart into an element
@@ -55,28 +55,33 @@ function valueAxis(c, name, extra = {}) {
     splitLine: { lineStyle: { color: c.line, type: [3, 4] } }, ...extra };
 }
 
-// Price band, median, previous forecast and, in hindsight, the actual price
-export function priceChart(el, rows, { tz, previous, actual, origin }) {
+// Price band, median, spot, the forecast an hour earlier and, in hindsight, the actual price
+export function priceChart(el, rows, { tz, previous, actual }) {
+  const spot = window.spotAt;
   const c = colors();
   const series = [
     { name: "P10", type: "line", data: rows.map((r) => [r.t, r.p10]), lineStyle: { opacity: 0 }, symbol: "none", stack: "band", stackStrategy: "all", tooltip: { show: false } },
     { name: "P10–P90 range", type: "line", data: rows.map((r) => [r.t, r.p90 - r.p10]), lineStyle: { opacity: 0 }, symbol: "none", stack: "band", stackStrategy: "all",
       areaStyle: { color: c.band }, color: c.band, tooltip: { show: false } },
-    { name: "Forecast (P50)", type: "line", data: rows.map((r) => [r.t, r.p50]), symbol: "none", lineStyle: { width: 2.5, color: c.accent }, color: c.accent, step: "end" },
+    { name: "Forecast now (P50)", type: "line", data: rows.map((r) => [r.t, r.p50]), symbol: "none", lineStyle: { width: 2.5, color: c.accent }, color: c.accent, step: "end" },
   ];
-  if (previous) series.push({ name: "Previous update", type: "line", data: previous.map((r) => [r.t, r.p50]), symbol: "none", step: "end",
+  if (spot) series.push({ name: "Spot price", type: "line", data: rows.map((r) => [r.t, spot(r.t)]), symbol: "none", step: "end",
+    lineStyle: { width: 1.5, color: c.spot }, color: c.spot });
+  if (previous) series.push({ name: "Forecast 1 h earlier", type: "line", data: previous.map((r) => [r.t, r.p50]), symbol: "none", step: "end",
     lineStyle: { width: 1.5, type: "dashed", color: c.muted }, color: c.muted });
   if (actual) series.push({ name: "Actual price", type: "line", data: actual, symbol: "circle", symbolSize: 4, step: "end",
     lineStyle: { width: 1.8, color: c.high }, color: c.high, connectNulls: false });
   const band = new Map(rows.map((r) => [r.t, r]));
   return draw(el, {
     ...base(c),
-    legend: { ...base(c).legend, data: ["Forecast (P50)", "P10–P90 range", ...(previous ? ["Previous update"] : []), ...(actual ? ["Actual price"] : [])] },
+    legend: { ...base(c).legend, data: ["Forecast now (P50)", "P10–P90 range", ...(spot ? ["Spot price"] : []), ...(previous ? ["Forecast 1 h earlier"] : []), ...(actual ? ["Actual price"] : [])] },
     tooltip: { ...base(c).tooltip, formatter: (ps) => {
       const t = ps[0].value[0], r = band.get(t);
-      let s = `<b>${fmtFull(t, tz)}</b><br>P50 ${r.p50.toFixed(1)} €/MWh<br>P10–P90 ${r.p10.toFixed(0)} to ${r.p90.toFixed(0)}`;
-      for (const p of ps) if (p.seriesName === "Previous update" || p.seriesName === "Actual price") if (p.value[1] != null) s += `<br>${p.seriesName}: ${p.value[1].toFixed(1)}`;
-      return s;
+      const value = (name) => ps.find((p) => p.seriesName === name)?.value[1];
+      const line = (color, label, v, bold) => (v == null ? "" : `<br><span style="color:${color}">●</span> ${label}: ${bold ? "<b>" : ""}${v.toFixed(1)}${bold ? "</b>" : ""} €/MWh`);
+      return `<b>${fmtFull(t, tz)}</b>` + line(c.accent, "Forecast now (P50)", r.p50, true) + `<br><span style="color:${c.accent};opacity:.5">●</span> Range P10–P90: ${r.p10.toFixed(0)} to ${r.p90.toFixed(0)}`
+        + line(c.spot, "Spot price", value("Spot price")) + line(c.muted, "Forecast 1 h earlier (P50)", value("Forecast 1 h earlier"))
+        + line(c.high, "Actual price", value("Actual price"));
     } },
     xAxis: timeAxis(c, tz), yAxis: valueAxis(c, "€/MWh", { scale: true }), series,
   });
@@ -87,8 +92,8 @@ export function riskChart(el, rows, { tz, base: rates, actual }) {
   const c = colors();
   const top = Math.min(1, Math.max(0.3, Math.ceil(Math.max(...rows.map((r) => Math.max(r.hi, r.lo))) * 12) / 10));
   const series = [
-    { name: "High-price risk", type: "bar", data: rows.map((r) => [r.t, r.hi]), itemStyle: { color: c.high }, barWidth: "70%" },
-    { name: "Low-price risk", type: "bar", data: rows.map((r) => [r.t, -r.lo]), itemStyle: { color: c.low }, barWidth: "70%", barGap: "-100%" },
+    { name: "▲ Spike above spot", type: "bar", data: rows.map((r) => [r.t, r.hi]), itemStyle: { color: c.high }, barWidth: "70%" },
+    { name: "▼ Spike below spot", type: "bar", data: rows.map((r) => [r.t, -r.lo]), itemStyle: { color: c.low }, barWidth: "70%", barGap: "-100%" },
   ];
   if (rates) series.push(
     { name: "Typical", type: "line", data: rows.map((r) => [r.t, rates.high]), symbol: "none", lineStyle: { type: "dotted", color: c.high }, color: c.muted, tooltip: { show: false } },
@@ -97,10 +102,10 @@ export function riskChart(el, rows, { tz, base: rates, actual }) {
   if (actual) series.push({ name: "Actual spike", type: "scatter", data: actual.map(([t, v]) => [t, v > 0 ? top * 0.95 : -top * 0.95]), symbol: "diamond", symbolSize: 9, itemStyle: { color: c.text } });
   return draw(el, {
     ...base(c),
-    legend: { ...base(c).legend, data: ["High-price risk", "Low-price risk", ...(rates ? ["Typical"] : []), ...(actual ? ["Actual spike"] : [])] },
+    legend: { ...base(c).legend, data: ["▲ Spike above spot", "▼ Spike below spot", ...(rates ? ["Typical"] : []), ...(actual ? ["Actual spike"] : [])] },
     tooltip: { ...base(c).tooltip, formatter: (ps) => {
       const t = ps[0].value[0];
-      return `<b>${fmtFull(t, tz)}</b>` + ps.filter((p) => p.seriesName.endsWith("risk")).map((p) => `<br>${p.seriesName}: ${pct(Math.abs(p.value[1]), 1)}`).join("");
+      return `<b>${fmtFull(t, tz)}</b>` + ps.filter((p) => p.seriesName.includes("Spike")).map((p) => `<br>${p.seriesName}: ${pct(Math.abs(p.value[1]), 1)}`).join("");
     } },
     xAxis: timeAxis(c, tz),
     yAxis: valueAxis(c, "probability", { min: -top, max: top, axisLabel: { color: c.muted, formatter: (v) => pct(Math.abs(v)) } }),
@@ -120,6 +125,27 @@ export function directionChart(el, rows, { tz }) {
     ...base(c), grid: { left: 62, right: 18, top: 30, bottom: 30 },
     tooltip: { ...base(c).tooltip, valueFormatter: (v) => pct(v, 1) },
     xAxis: timeAxis(c, tz), yAxis: valueAxis(c, "", { min: 0, max: 1, axisLabel: { color: c.muted, formatter: (v) => pct(v) } }), series,
+  });
+}
+
+// The last hours of published prices leading into the forecast for the coming hour
+export function contextChart(el, past, rows, { tz, origin }) {
+  const c = colors();
+  const spot = window.spotAt;
+  const span = [...past.map((p) => p[0]), ...rows.map((r) => r.t)];
+  const series = [
+    { name: "P10", type: "line", data: rows.map((r) => [r.t, r.p10]), lineStyle: { opacity: 0 }, symbol: "none", stack: "band", stackStrategy: "all", step: "end", tooltip: { show: false } },
+    { name: "P10–P90 range", type: "line", data: rows.map((r) => [r.t, r.p90 - r.p10]), lineStyle: { opacity: 0 }, symbol: "none", stack: "band", stackStrategy: "all", step: "end", areaStyle: { color: c.band }, color: c.band, tooltip: { show: false } },
+    { name: "Forecast (P50)", type: "line", data: rows.map((r) => [r.t, r.p50]), symbol: "circle", symbolSize: 7, step: "end", lineStyle: { width: 3, color: c.accent }, color: c.accent },
+    { name: "Published price", type: "line", data: past, symbol: "none", step: "end", lineStyle: { width: 1.8, color: c.text }, color: c.text,
+      markLine: { symbol: "none", silent: true, lineStyle: { color: c.muted, type: "dashed" }, label: { formatter: "now", color: c.muted }, data: [{ xAxis: origin }] } },
+  ];
+  if (spot) series.push({ name: "Spot price", type: "line", data: span.map((t) => [t, spot(t)]), symbol: "none", step: "end", lineStyle: { width: 1.4, color: c.spot }, color: c.spot });
+  return draw(el, {
+    ...base(c), grid: { left: 52, right: 18, top: 46, bottom: 34 },
+    legend: { ...base(c).legend, data: ["Published price", "Forecast (P50)", "P10–P90 range", ...(spot ? ["Spot price"] : [])] },
+    tooltip: { ...base(c).tooltip, valueFormatter: (v) => (v == null ? "–" : `${v.toFixed(1)} €/MWh`) },
+    xAxis: timeAxis(c, tz), yAxis: valueAxis(c, "€/MWh", { scale: true }), series,
   });
 }
 
