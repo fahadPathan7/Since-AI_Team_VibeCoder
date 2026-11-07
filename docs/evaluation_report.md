@@ -1,6 +1,6 @@
 ---
-title: "Forecasting the Finnish imbalance price: evaluation report"
-subtitle: "Turku Energia challenge, Since AI Hackathon 2026"
+title: "Forecasting the Finnish Imbalance Price: Evaluation Report"
+subtitle: "Turku Energia Challenge, Since AI Hackathon 2026"
 ---
 
 ## Summary
@@ -21,7 +21,7 @@ The validation period also helped us choose the design, so its scores are optimi
 
 ## 1. Reasoning chain
 
-### Step 1: understand how the price is formed
+### Step 1: Understand how the price is formed
 
 The pricing rules give the model its structure: spot is the anchor, direction chooses the side, and the balancing price sets the distance. The training data confirms this:
 
@@ -35,7 +35,7 @@ This is why we predict the spread (imbalance price minus spot), not the price di
 
 ![Spread distribution by direction](figures/fig1_spread_by_direction.png){width=68%}
 
-### Step 2: respect what is known at forecast time
+### Step 2: Respect what is known at forecast time
 
 The newest imbalance price at any origin is already 1 h 15 old, so even step 1 isn't really "near". Measured system data is 45 minutes old at best, and neighbouring areas' prices are at least 2 h 15 old. Spot and day-ahead forecasts are published in advance and cover all 40 steps.
 
@@ -44,13 +44,15 @@ So each input comes from one of two kinds of source:
 - **Target side:** published values for the delivery quarter-hour itself: spot shape, consumption and wind forecasts, net demand, calendar.
 - **Origin side:** the latest values usable at the origin: recent spread, direction, mFRR premiums, consumption forecast error, net export.
 
+The premiums are not columns in the starter package; we compute them. The mFRR up premium is the mFRR up price minus the spot price for the same quarter-hour, and the mFRR down premium is the mFRR down price minus spot. Both use the package series `fi_mfrr_up_price`, `fi_mfrr_down_price` and `fi_spot_price`. We take the median over the last 4 hours of values usable at the origin. The aFRR premiums used later are built the same way from `fi_afrr_up_price` and `fi_afrr_down_price`.
+
 The signal fades quickly with this delay. Spread rank autocorrelation is 0.50 at 1 h 15, 0.30 at 3 h and 0.12 at 11 h. Knowing the last direction is only better than always guessing "down" (65% of quarter-hours) up to about 2 hours ahead.
 
 ![Persistence by lag](figures/fig4_persistence.png){width=85%}
 
 This explains why our MAE barely changes across the horizon, from 39.4 in hour 1 to 43.5 in hour 10, while the baseline's persistence forecast worsens from 51.7 to 74.4.
 
-### Step 3: plan for changing volatility
+### Step 3: Plan for changing volatility
 
 The market's volatility shifts between months, and the validation period is far more volatile than July.
 
@@ -68,7 +70,7 @@ With about 125 days of data and only 4 months of market conditions, the 118,000 
 
 We therefore use volatility features only in the spike models, where they protect scores in calm periods (fold F1 spike Brier 0.0231 without them, 0.0222 with them). Models stay small so they generalise.
 
-### Step 4: choose the simplest design that holds up
+### Step 4: Choose the simplest design that holds up
 
 We tested each choice on three time folds rather than one month. Each fold trains only on labels usable by its start date.
 
@@ -133,7 +135,7 @@ These comparisons were run with development scripts that aren't part of the subm
 
 The best value is broad and flat. The scan above is for the earlier single-model design; for the final step-grouped design, 1.25 gave the best mean pinball across the folds.
 
-### Step 5: prove that no future data is used
+### Step 5: Prove that no future data is used
 
 Using data before its first usable time scores 0, so we made the rule testable:
 
