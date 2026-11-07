@@ -19,6 +19,7 @@ resource "aws_iam_role_policy" "api" {
     Version = "2012-10-17"
     Statement = [
       { Effect = "Allow", Action = ["s3:GetObject", "s3:PutObject"], Resource = "${aws_s3_bucket.runs.arn}/*" },
+      { Effect = "Allow", Action = "s3:ListBucket", Resource = aws_s3_bucket.runs.arn },
       { Effect = "Allow", Action = "lambda:InvokeFunction", Resource = "arn:aws:lambda:${var.region}:${data.aws_caller_identity.me.account_id}:function:${local.name}-api" },
     ]
   })
@@ -82,4 +83,27 @@ resource "aws_lambda_permission" "url_invoke" {
   function_name            = aws_lambda_function.api[0].function_name
   principal                = "*"
   invoked_via_function_url = true
+}
+
+# Ping the function every 5 minutes so visitors don't wait for a cold start
+resource "aws_cloudwatch_event_rule" "warm" {
+  count               = local.with_api ? 1 : 0
+  name                = "${local.name}-warm"
+  schedule_expression = "rate(5 minutes)"
+}
+
+resource "aws_cloudwatch_event_target" "warm" {
+  count = local.with_api ? 1 : 0
+  rule  = aws_cloudwatch_event_rule.warm[0].name
+  arn   = aws_lambda_function.api[0].arn
+  input = jsonencode({ warm = true })
+}
+
+resource "aws_lambda_permission" "warm" {
+  count         = local.with_api ? 1 : 0
+  statement_id  = "KeepWarm"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.api[0].function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.warm[0].arn
 }

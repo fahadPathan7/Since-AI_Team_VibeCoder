@@ -2,7 +2,15 @@
 
 Forecast of the Finnish imbalance price for the next 10 hours in 15-minute steps. Outputs are `p10`, `p50`, `p90`, regulation direction, exceptional price probabilities and main drivers.
 
-The forecast file is `outputs/forecast_backtest.csv`. The report is `docs/evaluation_report.pdf`, and data sources and licences are in `docs/components.md`. The dashboard and API are in `dashboard/` (run locally with `python -m dashboard`), and AWS hosting is in `infra/`.
+Live dashboard (ValoBalance): https://d33zptc1t0y8ga.cloudfront.net
+
+| What | Where |
+|---|---|
+| Forecast file | `outputs/forecast_backtest.csv` |
+| Evaluation report | `docs/evaluation_report.pdf` |
+| Data sources, services, models and software, with usage rights | `docs/components.pdf` |
+| Dashboard and API (ValoBalance) | `dashboard/`, run locally with `python -m dashboard` |
+| AWS hosting | `infra/` |
 
 ## Setup
 

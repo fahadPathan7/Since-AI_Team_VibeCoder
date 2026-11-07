@@ -1,4 +1,7 @@
-# Data sources, services, models and components
+---
+title: "Data sources, services, models and software"
+subtitle: "With their usage rights · Turku Energia challenge, Since AI Hackathon 2026"
+---
 
 Licences are as declared in each package's metadata, or by its publisher, at the versions listed.
 
@@ -10,7 +13,7 @@ All data comes from the organisers' starter package. We added no external data.
 |---|---|---|
 | Fingrid Open Data | Imbalance price, mFRR and aFRR data, direction, consumption, production, cross-border flows, day-ahead consumption, wind and solar forecasts | CC BY 4.0 |
 | ENTSO-E Transparency Platform | Neighbouring area imbalance prices, load forecasts and FI–EE capacity. These are in the package, and were checked for the feature study. The final model doesn't use them | CC BY 4.0, modified by the organisers (converted to UTC and 15-minute series) |
-| Nord Pool, via Turku Energia | Finnish day-ahead spot price | Licensed to Turku Energia. Hackathon use only, no redistribution, no public repositories, delete after the event |
+| Nord Pool, via Turku Energia | Finnish day-ahead spot price | Licensed to Turku Energia. Hackathon use only, no redistribution, no public repositories, delete after the event. Shown only in the local dashboard, never on the hosted site |
 | Calendar series in the package | Weekday, local hour, holidays, daylight saving | Provided by the organisers |
 
 **Attribution:** contains data from Fingrid Open Data and the ENTSO-E Transparency Platform, both CC BY 4.0, processed by the organisers and by this project as described in `README.md`.
@@ -22,7 +25,7 @@ The forecast and its code use no external services or APIs at run time.
 | Service | Use | Usage rights |
 |---|---|---|
 | Claude Code (Anthropic) | AI assistant for coding, analysis and writing during development. It isn't part of the forecast | Anthropic commercial terms |
-| Amazon Web Services: CloudFront, S3, Lambda, ECR, IAM, CloudWatch Logs | Optional hosting of the dashboard and API (`infra/`). Not needed to produce the forecast | AWS Customer Agreement |
+| Amazon Web Services: CloudFront, S3, Lambda, ECR, IAM, CloudWatch Logs, EventBridge | Hosting of the ValoBalance dashboard and API at https://d33zptc1t0y8ga.cloudfront.net (`infra/`). Not needed to produce the forecast | AWS Customer Agreement |
 
 ## Ready-made models
 
@@ -69,11 +72,11 @@ Other packages are installed automatically as dependencies of these, under their
 
 ## Documentation tools
 
-The PDF report was made with Pandoc (GPL-2.0-or-later) and Google Chrome. Neither is needed to run the code.
+The PDF documents were made with Pandoc (GPL-2.0-or-later) and Google Chrome. Neither is needed to run the code.
 
 ## Evaluated and not used
 
-These were compared during development and aren't part of the final solution. The evaluation report gives the results.
+These were compared during development and aren't part of the final solution. None of them beat the chosen design by a clear margin.
 
 | Model | Library | Licence |
 |---|---|---|

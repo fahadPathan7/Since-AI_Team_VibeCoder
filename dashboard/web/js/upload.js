@@ -164,7 +164,7 @@ export async function renderRun(root) {
       <div class="range">or origins from <input type="datetime-local" id="first" step="3600"> to <input type="datetime-local" id="last" step="3600"> UTC, every
         <input type="number" id="every" value="1" min="1" max="24" style="width:56px"> h <button class="btn ghost" id="fill-test" type="button">Test period</button></div>
       <div class="toolbar" style="margin-top:16px"><button class="btn" id="go" disabled>▶ Run forecast</button>
-        <span class="hint">673 test origins ≈ 20–60 s · you get the official CSV, validator result and score</span></div>
+        <span class="hint">673 test origins take about 2–3 minutes online (seconds locally) · you get the official CSV, validator result and score</span></div>
       <div id="run-out"></div>
       <details class="more"><summary>What files work?</summary>
         <div class="grid cols-2 mt">

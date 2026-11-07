@@ -15,11 +15,10 @@ Against the official baseline on the validation period (7 Sep – 4 Oct 2026), m
 | **Our model** | **42.29** | **11.91** | **0.79** | **0.0922** | **0.3987** |
 | Improvement | 36% | 51% | Target about 0.80 | 19% | 12% |
 
-Three findings shaped the solution:
+Two findings shaped the solution:
 
 1. **Simple beat complex.** Our first 89-feature model lost to "spot + median spread" on MAE. Cutting to 21 features with strong regularisation improved every metric.
-2. **Spot is the best anchor.** We forecast the difference between imbalance price and spot, because spot is already published for all 40 steps at every origin.
-3. **Risk can be forecast better than price.** Exact spikes remain hard to time, but the model does recognise when errors are likely to be large. In the widest fifth of its intervals, MAE is 102 EUR/MWh, against 8 in the narrowest fifth.
+2. **Start from the spot price and predict only the difference.** The imbalance price is the spot price plus a balancing premium. The day-ahead spot price is public information: Nord Pool publishes it around 14:00 Finnish time the day before, so every market party has it when the forecast is made. The organisers' data rule allows it from that time, and our leakage test confirms we never read it earlier. The model then only has to predict the premium, which is usually small (median +25 €/MWh in up-regulation, −17 €/MWh in down-regulation). With the same inputs, this lowered MAE from 44.40 to 42.74.
 
 The validation period also helped us choose the design, so its scores are optimistic.
 
@@ -52,7 +51,7 @@ The signal fades quickly with this delay. Spread rank autocorrelation is 0.50 at
 
 ![Persistence by lag](figures/fig4_persistence.png){width=85%}
 
-This explains why our MAE barely changes across the horizon, from 41.3 in hour 1 to 43.6 in hour 10, while the baseline's persistence forecast worsens from 51.7 to 74.4.
+This explains why our MAE barely changes across the horizon, from 39.4 in hour 1 to 43.5 in hour 10, while the baseline's persistence forecast worsens from 51.7 to 74.4.
 
 ### Step 3: plan for changing volatility
 
@@ -144,7 +143,7 @@ Using data before its first usable time scores 0, so we made the rule testable:
 - **One access path.** Each feature reads its source at the last row usable at that origin, based on the organisers' `first_usable_origin_utc`.
 - **Perturbation test.** For validation and test origins, including the 25 Oct clock change, every value not yet usable is overwritten with garbage. Features must stay **identical**. A second test confirms that changing a usable value does change them.
 - **Blank labels.** Labels are blank unless usable by `2026-10-04T21:00:00Z`, so test-period prices can't reach training. The last training delivery is 4 Oct 19:45 UTC.
-- **No tuning on the test period.** Every design choice, including the final step-grouped models, was made on folds with labels usable by 4 Oct. An earlier version of the forecast was checked once against the package's test-period prices, and the later tuning used only the folds. After the final forecast was frozen, it was scored against the test-period prices to judge the result, and the dashboard's hindsight views show those outcomes. Nothing was changed because of these checks.
+- **No tuning on the test period.** Every design choice, including the final step-grouped models, was made on folds with labels usable by 4 Oct. An earlier version of the forecast was checked once against the package's test-period prices, and the later tuning used only the folds. After the final forecast was frozen, it was scored against the test-period prices to judge the result. Nothing was changed because of these checks.
 - **A warning sign we measured.** Training directly on wide rows gave a validation MAE of 12.96 with same-row columns, and 25.47 with every column shifted by one row. Both are leakage. Our valid result is 42.29, and the oracle in section 3 shows why much lower is implausible.
 
 ## 2. Factors affecting the forecast
@@ -280,3 +279,5 @@ The lesson for a user: **read the risk probabilities alongside `p50`.** In the l
 The organisers' files are in long format. We reshaped them into one table of values and one table of first usable times, on a regular 15-minute grid. No values were changed, filled or removed, and extreme prices stay because they are real and scored. The training table is then built with one row per (origin, delivery) pair. The submission `README.md` gives details.
 
 All analysis is in `notebooks/01_eda.ipynb`, and measured values are in `docs/eda_summary.json`.
+
+**Live dashboard (ValoBalance):** [https://d33zptc1t0y8ga.cloudfront.net](https://d33zptc1t0y8ga.cloudfront.net)

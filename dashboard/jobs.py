@@ -7,7 +7,6 @@ import uuid
 import pandas as pd
 
 from dashboard.inputs import InputError
-from dashboard.predict import run_forecast
 from dashboard.settings import RUNS, RUNS_BUCKET, UPLOAD_LIMIT_MB
 
 FILES = ("inputs", "spot", "origins")
@@ -19,7 +18,10 @@ class Store:
         self.s3 = None
         if RUNS_BUCKET:
             import boto3
-            self.s3 = boto3.client("s3")
+            from botocore.config import Config
+            region = os.environ.get("AWS_REGION", "eu-north-1")
+            self.s3 = boto3.client("s3", region_name=region, endpoint_url=f"https://s3.{region}.amazonaws.com",
+                                   config=Config(signature_version="s3v4", s3={"addressing_style": "virtual"}))
 
     def put(self, key, data, content_type="application/octet-stream"):
         if self.s3:
@@ -33,8 +35,10 @@ class Store:
         if self.s3:
             try:
                 return self.s3.get_object(Bucket=RUNS_BUCKET, Key=key)["Body"].read()
-            except self.s3.exceptions.NoSuchKey:
-                return None
+            except self.s3.exceptions.ClientError as error:
+                if error.response["Error"]["Code"] in ("NoSuchKey", "404", "AccessDenied"):
+                    return None
+                raise
         path = RUNS / key
         return path.read_bytes() if path.exists() else None
 
@@ -83,6 +87,7 @@ def run_job(job):
         origin_range = info.get("range")
         if "origins" not in files and not origin_range:
             raise InputError("Give a forecast origins file or a first and last origin")
+        from dashboard.predict import run_forecast
         table, payload, report = run_forecast(
             files["inputs"], files.get("spot"), files.get("origins"),
             (origin_range["start"], origin_range["end"], origin_range.get("every", 1)) if origin_range else None,

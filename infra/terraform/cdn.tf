@@ -41,7 +41,7 @@ resource "aws_cloudfront_function" "auth" {
       var expected = "Basic ${base64encode("${var.basic_auth_user}:${var.basic_auth_password}")}";
       var h = event.request.headers.authorization;
       if (h && h.value === expected) return event.request;
-      return { statusCode: 401, statusDescription: "Unauthorized", headers: { "www-authenticate": { value: "Basic realm=\"Imbalance Price Watch\"" } } };
+      return { statusCode: 401, statusDescription: "Unauthorized", headers: { "www-authenticate": { value: "Basic realm=\"ValoBalance\"" } } };
     }
   JS
 }
@@ -49,7 +49,7 @@ resource "aws_cloudfront_function" "auth" {
 # One address for the page and the API, with HTTPS from CloudFront's own certificate
 resource "aws_cloudfront_distribution" "site" {
   enabled             = true
-  comment             = "Imbalance Price Watch"
+  comment             = "ValoBalance"
   default_root_object = "index.html"
   price_class         = "PriceClass_100"
   http_version        = "http2and3"

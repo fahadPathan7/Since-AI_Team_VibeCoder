@@ -1,4 +1,4 @@
-# Dashboard and API
+# ValoBalance: dashboard and API
 
 A situational view for a production shift supervisor or an electricity trading specialist: what is worth checking now, what is coming in the next 10 hours, and how the forecast has performed. The same page runs locally or on AWS.
 
