@@ -10,7 +10,8 @@
   --accent: #2a78d6;
   --accent-2: #6250d6;
   --high: #e34948;
-  --low: #1baf7a;
+  --low: #6250d6;
+  --spot: #c98500;
   --up: #eb6834;
   --down: #2a78d6;
   --warn: #eda100;
@@ -21,7 +22,7 @@
   color-scheme: light;
 }
 
-:root:not([data-theme="light"]) {
+:root[data-theme="dark"] {
   --bg: #0b111c;
   --bg-glow: radial-gradient(1200px 520px at 10% -10%, rgba(57, 135, 229, .18), transparent 60%), radial-gradient(900px 420px at 100% 0%, rgba(144, 133, 233, .12), transparent 60%);
   --panel: #121a28;
@@ -33,7 +34,8 @@
   --accent: #3987e5;
   --accent-2: #9085e9;
   --high: #e66767;
-  --low: #199e70;
+  --low: #9085e9;
+  --spot: #eda100;
   --up: #d95926;
   --down: #3987e5;
   --warn: #c98500;
@@ -115,7 +117,7 @@ footer { padding: 6px 22px 26px; color: var(--faint); font-size: 11.5px; text-al
 .hero::before { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, color-mix(in srgb, var(--state) 16%, transparent), transparent 55%); pointer-events: none; }
 .state { display: flex; align-items: center; gap: 14px; position: relative; }
 .state .badge { width: 58px; height: 58px; border-radius: 16px; display: grid; place-items: center; font-size: 28px; background: color-mix(in srgb, var(--state) 18%, transparent); color: var(--state); border: 1px solid color-mix(in srgb, var(--state) 40%, transparent); }
-.state .word { font-size: 28px; font-weight: 800; letter-spacing: -.02em; color: var(--state); line-height: 1; }
+.state .word { font-size: 26px; font-weight: 800; letter-spacing: -.02em; color: var(--state); line-height: 1; }
 .state .why { color: var(--muted); font-size: 13px; margin-top: 4px; max-width: 320px; }
 .lanes { position: relative; min-width: 0; }
 

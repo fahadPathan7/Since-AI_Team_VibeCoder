@@ -30,7 +30,7 @@ function applyTheme(theme) {
 }
 applyTheme(recall("theme"));
 $("theme").onclick = () => {
-  const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+  const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
   applyTheme(next); remember("theme", next); render();
 };
 

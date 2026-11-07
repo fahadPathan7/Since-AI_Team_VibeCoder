@@ -7,7 +7,7 @@ export function colors() {
   const css = getComputedStyle(document.documentElement);
   const v = (n) => css.getPropertyValue(n).trim();
   return { text: v("--text"), muted: v("--muted"), line: v("--line"), accent: v("--accent"), band: v("--band"), high: v("--high"),
-    low: v("--low"), up: v("--up"), down: v("--down"), warn: v("--warn"), panel: v("--panel"), ok: v("--ok"), spot: v("--accent-2") };
+    low: v("--low"), up: v("--up"), down: v("--down"), warn: v("--warn"), panel: v("--panel"), ok: v("--ok"), spot: v("--spot") };
 }
 
 // Draw or redraw a chart into an element
@@ -63,13 +63,13 @@ export function priceChart(el, rows, { tz, previous, actual }) {
     { name: "P10", type: "line", data: rows.map((r) => [r.t, r.p10]), lineStyle: { opacity: 0 }, symbol: "none", stack: "band", stackStrategy: "all", tooltip: { show: false } },
     { name: "P10–P90 range", type: "line", data: rows.map((r) => [r.t, r.p90 - r.p10]), lineStyle: { opacity: 0 }, symbol: "none", stack: "band", stackStrategy: "all",
       areaStyle: { color: c.band }, color: c.band, tooltip: { show: false } },
-    { name: "Forecast now (P50)", type: "line", data: rows.map((r) => [r.t, r.p50]), symbol: "none", lineStyle: { width: 2.5, color: c.accent }, color: c.accent, step: "end" },
+    { name: "Forecast now (P50)", type: "line", data: rows.map((r) => [r.t, r.p50]), symbol: "none", lineStyle: { width: 2.5, color: c.accent }, color: c.accent },
   ];
-  if (spot) series.push({ name: "Spot price", type: "line", data: rows.map((r) => [r.t, spot(r.t)]), symbol: "none", step: "end",
+  if (spot) series.push({ name: "Spot price", type: "line", data: rows.map((r) => [r.t, spot(r.t)]), symbol: "none",
     lineStyle: { width: 1.5, color: c.spot }, color: c.spot });
-  if (previous) series.push({ name: "Forecast 1 h earlier", type: "line", data: previous.map((r) => [r.t, r.p50]), symbol: "none", step: "end",
+  if (previous) series.push({ name: "Forecast 1 h earlier", type: "line", data: previous.map((r) => [r.t, r.p50]), symbol: "none",
     lineStyle: { width: 1.5, type: "dashed", color: c.muted }, color: c.muted });
-  if (actual) series.push({ name: "Actual price", type: "line", data: actual, symbol: "circle", symbolSize: 4, step: "end",
+  if (actual) series.push({ name: "Actual price", type: "line", data: actual, symbol: "circle", symbolSize: 4,
     lineStyle: { width: 1.8, color: c.high }, color: c.high, connectNulls: false });
   const band = new Map(rows.map((r) => [r.t, r]));
   return draw(el, {
@@ -87,13 +87,13 @@ export function priceChart(el, rows, { tz, previous, actual }) {
   });
 }
 
-// Exceptional price risk per quarter-hour, high above and low below the axis
+// Spike risk per quarter-hour as lines: above spot over the axis, below spot under it
 export function riskChart(el, rows, { tz, base: rates, actual }) {
   const c = colors();
   const top = Math.min(1, Math.max(0.3, Math.ceil(Math.max(...rows.map((r) => Math.max(r.hi, r.lo))) * 12) / 10));
   const series = [
-    { name: "▲ Spike above spot", type: "bar", data: rows.map((r) => [r.t, r.hi]), itemStyle: { color: c.high }, barWidth: "70%" },
-    { name: "▼ Spike below spot", type: "bar", data: rows.map((r) => [r.t, -r.lo]), itemStyle: { color: c.low }, barWidth: "70%", barGap: "-100%" },
+    { name: "▲ Spike above spot", type: "line", data: rows.map((r) => [r.t, r.hi]), symbol: "none", lineStyle: { width: 2, color: c.high }, itemStyle: { color: c.high }, areaStyle: { color: c.high, opacity: 0.18 } },
+    { name: "▼ Spike below spot", type: "line", data: rows.map((r) => [r.t, -r.lo]), symbol: "none", lineStyle: { width: 2, color: c.low }, itemStyle: { color: c.low }, areaStyle: { color: c.low, opacity: 0.18 } },
   ];
   if (rates) series.push(
     { name: "Typical", type: "line", data: rows.map((r) => [r.t, rates.high]), symbol: "none", lineStyle: { type: "dotted", color: c.high }, color: c.muted, tooltip: { show: false } },
@@ -113,13 +113,13 @@ export function riskChart(el, rows, { tz, base: rates, actual }) {
   });
 }
 
-// Up, down and none probabilities stacked, as in the forecast file
+// Up, down and none probabilities as stacked areas, as in the forecast file
 export function directionChart(el, rows, { tz }) {
   const c = colors();
   const series = [
-    { name: "Up (p_up)", type: "bar", stack: "d", data: rows.map((r) => [r.t, r.up]), itemStyle: { color: c.up }, barWidth: "100%" },
-    { name: "Down (p_down)", type: "bar", stack: "d", data: rows.map((r) => [r.t, r.down]), itemStyle: { color: c.down }, barWidth: "100%" },
-    { name: "None (p_none)", type: "bar", stack: "d", data: rows.map((r) => [r.t, r.none]), itemStyle: { color: c.muted }, barWidth: "100%" },
+    { name: "Up (p_up)", type: "line", stack: "d", stackStrategy: "all", data: rows.map((r) => [r.t, r.up]), symbol: "none", lineStyle: { width: 1, color: c.up }, itemStyle: { color: c.up }, areaStyle: { color: c.up, opacity: 0.85 } },
+    { name: "Down (p_down)", type: "line", stack: "d", stackStrategy: "all", data: rows.map((r) => [r.t, r.down]), symbol: "none", lineStyle: { width: 1, color: c.down }, itemStyle: { color: c.down }, areaStyle: { color: c.down, opacity: 0.85 } },
+    { name: "None (p_none)", type: "line", stack: "d", stackStrategy: "all", data: rows.map((r) => [r.t, r.none]), symbol: "none", lineStyle: { width: 1, color: c.muted }, itemStyle: { color: c.muted }, areaStyle: { color: c.muted, opacity: 0.85 } },
   ];
   return draw(el, {
     ...base(c), grid: { left: 62, right: 18, top: 30, bottom: 30 },
@@ -128,23 +128,23 @@ export function directionChart(el, rows, { tz }) {
   });
 }
 
-// Recent published prices, the not-yet-published gap and the forecast, with the coming hour highlighted
+// Recent published prices, then the forecast from now, with the gap and the coming hour labelled
 export function contextChart(el, past, rows, { tz, origin }) {
   const c = colors();
-  const spot = window.spotAt;
   const lastPublished = past.length ? past[past.length - 1][0] + 15 * 60000 : origin;
+  const label = (from, to, text) => [{ xAxis: from, name: text, itemStyle: { color: "transparent" }, label: { color: c.muted, position: "insideTop", fontSize: 11 } }, { xAxis: to }];
+  const spot = window.spotAt;
   const end = rows[rows.length - 1].t + 15 * 60000;
   const span = [...past.map((p) => p[0]), ...rows.map((r) => r.t)];
-  const shade = (from, to, label, color) => [{ xAxis: from, name: label, itemStyle: { color }, label: { color: c.muted, position: "insideTop", fontSize: 11 } }, { xAxis: to }];
   const series = [
-    { name: "P10", type: "line", data: rows.map((r) => [r.t, r.p10]), lineStyle: { opacity: 0 }, symbol: "none", stack: "band", stackStrategy: "all", step: "end", tooltip: { show: false } },
-    { name: "P10–P90 range", type: "line", data: rows.map((r) => [r.t, r.p90 - r.p10]), lineStyle: { opacity: 0 }, symbol: "none", stack: "band", stackStrategy: "all", step: "end", areaStyle: { color: c.band }, color: c.band, tooltip: { show: false } },
-    { name: "Forecast (P50)", type: "line", data: [...rows.map((r) => [r.t, r.p50]), [end, rows[rows.length - 1].p50]], symbol: "circle", symbolSize: 6, step: "end", lineStyle: { width: 3, color: c.accent }, color: c.accent,
-      markArea: { silent: true, data: [shade(lastPublished, origin, "not published yet", "rgba(127,127,127,.10)"), shade(origin, origin + 3600000, "coming hour", "rgba(57,135,229,.10)")] } },
-    { name: "Published price", type: "line", data: past, symbol: "circle", symbolSize: 4, step: "end", lineStyle: { width: 2, color: c.text }, color: c.text,
+    { name: "P10", type: "line", data: rows.map((r) => [r.t, r.p10]), lineStyle: { opacity: 0 }, symbol: "none", stack: "band", stackStrategy: "all", tooltip: { show: false } },
+    { name: "P10–P90 range", type: "line", data: rows.map((r) => [r.t, r.p90 - r.p10]), lineStyle: { opacity: 0 }, symbol: "none", stack: "band", stackStrategy: "all", areaStyle: { color: c.band }, color: c.band, tooltip: { show: false } },
+    { name: "Forecast (P50)", type: "line", data: [...rows.map((r) => [r.t, r.p50]), [end, rows[rows.length - 1].p50]], symbol: "circle", symbolSize: 6, lineStyle: { width: 3, color: c.accent }, color: c.accent,
+      markArea: { silent: true, data: [label(lastPublished, origin, "not published yet"), label(origin, origin + 3600000, "coming hour")] } },
+    { name: "Published price", type: "line", data: past, symbol: "circle", symbolSize: 4, lineStyle: { width: 2, color: c.text }, color: c.text,
       markLine: { symbol: "none", silent: true, lineStyle: { color: c.muted, type: "dashed" }, label: { formatter: "now", color: c.muted }, data: [{ xAxis: origin }] } },
   ];
-  if (spot) series.push({ name: "Spot price", type: "line", data: [...span, end].map((t) => [t, spot(Math.min(t, end - 15 * 60000))]), symbol: "none", step: "end", lineStyle: { width: 1.4, color: c.spot }, color: c.spot });
+  if (spot) series.push({ name: "Spot price", type: "line", data: [...span, end].map((t) => [t, spot(Math.min(t, end - 15 * 60000))]), symbol: "none", lineStyle: { width: 1.4, color: c.spot }, color: c.spot });
   return draw(el, {
     ...base(c), grid: { left: 52, right: 18, top: 46, bottom: 34 },
     legend: { ...base(c).legend, data: ["Published price", "Forecast (P50)", "P10–P90 range", ...(spot ? ["Spot price"] : [])] },

@@ -22,7 +22,7 @@ python -m dashboard.build_data
 
 | View | What it answers |
 |---|---|
-| **Now** | The coming hour only: each quarter-hour's P50, range, risks and direction, the last 2 hours of published prices with the not-yet-published gap, and the alerts that matter now. Later alerts are listed below them |
+| **Now** | The coming hour only: each quarter-hour's P50, range, risks and direction, the last 2 hours of published prices and the forecast from now, and the alerts that matter now. Later alerts are listed below them |
 | **Next 10 hours** | Colour lanes for direction and spike risk, P50 with the P10–P90 range, spike risk above and below spot, up/down/none regulation, an hourly table with drivers, and a CSV download |
 | **Hindsight** | Scores for the previous day, week, month or a custom date range, forecast against actual for the last 7 days, error by horizon, and alerts with what followed |
 | **Insights** | When spike risk above spot concentrates, how interval width predicts error, whether the probabilities are honest, whether alerts mean something, and the main drivers |
