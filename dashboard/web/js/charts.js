@@ -128,24 +128,28 @@ export function directionChart(el, rows, { tz }) {
   });
 }
 
-// The last hours of published prices leading into the forecast for the coming hour
+// Recent published prices, the not-yet-published gap and the forecast, with the coming hour highlighted
 export function contextChart(el, past, rows, { tz, origin }) {
   const c = colors();
   const spot = window.spotAt;
+  const lastPublished = past.length ? past[past.length - 1][0] + 15 * 60000 : origin;
+  const end = rows[rows.length - 1].t + 15 * 60000;
   const span = [...past.map((p) => p[0]), ...rows.map((r) => r.t)];
+  const shade = (from, to, label, color) => [{ xAxis: from, name: label, itemStyle: { color }, label: { color: c.muted, position: "insideTop", fontSize: 11 } }, { xAxis: to }];
   const series = [
     { name: "P10", type: "line", data: rows.map((r) => [r.t, r.p10]), lineStyle: { opacity: 0 }, symbol: "none", stack: "band", stackStrategy: "all", step: "end", tooltip: { show: false } },
     { name: "P10–P90 range", type: "line", data: rows.map((r) => [r.t, r.p90 - r.p10]), lineStyle: { opacity: 0 }, symbol: "none", stack: "band", stackStrategy: "all", step: "end", areaStyle: { color: c.band }, color: c.band, tooltip: { show: false } },
-    { name: "Forecast (P50)", type: "line", data: rows.map((r) => [r.t, r.p50]), symbol: "circle", symbolSize: 7, step: "end", lineStyle: { width: 3, color: c.accent }, color: c.accent },
-    { name: "Published price", type: "line", data: past, symbol: "none", step: "end", lineStyle: { width: 1.8, color: c.text }, color: c.text,
+    { name: "Forecast (P50)", type: "line", data: [...rows.map((r) => [r.t, r.p50]), [end, rows[rows.length - 1].p50]], symbol: "circle", symbolSize: 6, step: "end", lineStyle: { width: 3, color: c.accent }, color: c.accent,
+      markArea: { silent: true, data: [shade(lastPublished, origin, "not published yet", "rgba(127,127,127,.10)"), shade(origin, origin + 3600000, "coming hour", "rgba(57,135,229,.10)")] } },
+    { name: "Published price", type: "line", data: past, symbol: "circle", symbolSize: 4, step: "end", lineStyle: { width: 2, color: c.text }, color: c.text,
       markLine: { symbol: "none", silent: true, lineStyle: { color: c.muted, type: "dashed" }, label: { formatter: "now", color: c.muted }, data: [{ xAxis: origin }] } },
   ];
-  if (spot) series.push({ name: "Spot price", type: "line", data: span.map((t) => [t, spot(t)]), symbol: "none", step: "end", lineStyle: { width: 1.4, color: c.spot }, color: c.spot });
+  if (spot) series.push({ name: "Spot price", type: "line", data: [...span, end].map((t) => [t, spot(Math.min(t, end - 15 * 60000))]), symbol: "none", step: "end", lineStyle: { width: 1.4, color: c.spot }, color: c.spot });
   return draw(el, {
     ...base(c), grid: { left: 52, right: 18, top: 46, bottom: 34 },
     legend: { ...base(c).legend, data: ["Published price", "Forecast (P50)", "P10–P90 range", ...(spot ? ["Spot price"] : [])] },
     tooltip: { ...base(c).tooltip, valueFormatter: (v) => (v == null ? "–" : `${v.toFixed(1)} €/MWh`) },
-    xAxis: timeAxis(c, tz), yAxis: valueAxis(c, "€/MWh", { scale: true }), series,
+    xAxis: { ...timeAxis(c, tz), min: past.length ? past[0][0] : origin - 2 * 3600000, max: end }, yAxis: valueAxis(c, "€/MWh", { scale: true }), series,
   });
 }
 

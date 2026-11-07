@@ -87,7 +87,8 @@ export function renderNow(root, ds, i) {
   const hi = hour.reduce((a, b) => (b.hi > a.hi ? b : a)), lo = hour.reduce((a, b) => (b.lo > a.lo ? b : a));
   const up = avg("up"), down = avg("down"), none = avg("none");
   const past = [];
-  for (let t = origin - 6 * HOUR; t < origin; t += Q) { const a = ds.outcome(t, origin); if (a) past.push([t, a.price]); }
+  for (let t = origin - 3 * HOUR; t < origin; t += Q) { const a = ds.outcome(t, origin); if (a) past.push([t, a.price]); }
+  const recent = past.filter((p) => p[0] >= (past.length ? past[past.length - 1][0] : origin) - 2 * HOUR + Q);
   const lastKnown = past.length ? past[past.length - 1] : null;
   root.innerHTML = `
     <div class="card hero" style="--state:var(${st.color})">
@@ -116,12 +117,12 @@ export function renderNow(root, ds, i) {
           `<div class="calm"><div class="badge">✓</div><b>Nothing for the coming hour</b></div>`}</div>
         ${later.length ? `<div class="card-head mt"><h2 class="muted">Later today</h2><button class="btn ghost" id="to-next">Next 10 h →</button></div>
           <div class="alerts">${later.map((a) => alertCard(a, tz)).join("")}</div>` : ""}</div>
-      <div class="card"><div class="card-head"><h2>Last 6 hours → coming hour</h2><span class="hint">published prices, then the forecast</span></div>
+      <div class="card"><div class="card-head"><h2>Recent prices → coming hours</h2><span class="hint">last 2 h published · gap not yet published · forecast, coming hour shaded</span></div>
         <div class="chart tall" id="now-ctx"></div></div>
     </div>`;
   gaugeChart(document.getElementById("g-hi"), hi.hi, { color: c.high, typical: rates.high });
   gaugeChart(document.getElementById("g-lo"), lo.lo, { color: c.low, typical: rates.low });
-  contextChart(document.getElementById("now-ctx"), past, hour, { tz, origin });
+  contextChart(document.getElementById("now-ctx"), recent, rows.slice(0, 8), { tz, origin });
   const go = document.getElementById("to-next");
   if (go) go.onclick = () => { window.state.view = "next"; window.render(); };
 }
