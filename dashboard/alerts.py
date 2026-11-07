@@ -29,7 +29,7 @@ def clock(t):
     return t.tz_convert(LOCAL).strftime("%H:%M")
 
 
-# Contiguous runs of flagged quarter-hours with at least a minimum length
+# Runs of flagged quarter-hours with a minimum length, joining runs separated by a short gap
 def runs(flags, minimum):
     found, start = [], None
     for i, flag in enumerate(list(flags) + [False]):
@@ -39,7 +39,13 @@ def runs(flags, minimum):
             if i - start >= minimum:
                 found.append((start, i))
             start = None
-    return found
+    merged = []
+    for s, e in found:
+        if merged and s - merged[-1][1] <= ALERTS["merge_gap"]:
+            merged[-1] = (merged[-1][0], e)
+        else:
+            merged.append((s, e))
+    return merged
 
 
 # The three driver phrases seen most often in a window

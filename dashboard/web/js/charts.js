@@ -187,41 +187,6 @@ export function barChart(el, labels, values, { name, color, format = (v) => v.to
   });
 }
 
-// Calendar heatmap: day by local hour
-export function heatmap(el, days, hours, cells, { max, color, name, marks, tz }) {
-  const c = colors();
-  return draw(el, {
-    ...base(c), legend: { show: false },
-    grid: { left: 70, right: 70, top: 10, bottom: 40 },
-    tooltip: { formatter: (p) => `${days[p.value[1]]} ${String(hours[p.value[0]]).padStart(2, "0")}:00<br>${name}: ${pct(p.value[2], 1)}`,
-      backgroundColor: c.panel, borderColor: c.line, textStyle: { color: c.text } },
-    xAxis: { type: "category", data: hours.map((h) => String(h).padStart(2, "0")), axisLabel: { color: c.muted }, splitArea: { show: false } },
-    yAxis: { type: "category", data: days, axisLabel: { color: c.muted }, inverse: true },
-    visualMap: { min: 0, max, calculable: false, orient: "vertical", right: 0, top: "middle", itemHeight: 120,
-      inRange: { color: [c.panel, color] }, textStyle: { color: c.muted }, formatter: (v) => pct(v) },
-    series: [
-      { type: "heatmap", data: cells, itemStyle: { borderColor: c.panel, borderWidth: 1 } },
-      ...(marks ? [{ type: "scatter", data: marks, symbol: "circle", symbolSize: 5, itemStyle: { color: c.text }, tooltip: { formatter: "Actual spike" } }] : []),
-    ],
-  });
-}
-
-// Predicted probability against observed frequency
-export function reliabilityChart(el, bins, { color }) {
-  const c = colors();
-  return draw(el, {
-    ...base(c), legend: { show: false }, grid: { left: 52, right: 16, top: 16, bottom: 40 },
-    tooltip: { trigger: "item", backgroundColor: c.panel, borderColor: c.line, textStyle: { color: c.text },
-      formatter: (p) => p.seriesIndex ? `Predicted ${pct(p.value[0])}<br>Observed ${pct(p.value[1])}<br>${p.value[2]} quarter-hours` : "" },
-    xAxis: valueAxis(c, "predicted", { min: 0, max: 1, nameLocation: "middle", nameGap: 26, axisLabel: { color: c.muted, formatter: (v) => pct(v) } }),
-    yAxis: valueAxis(c, "observed", { min: 0, max: 1, axisLabel: { color: c.muted, formatter: (v) => pct(v) } }),
-    series: [
-      { type: "line", data: [[0, 0], [1, 1]], symbol: "none", lineStyle: { type: "dashed", color: c.muted } },
-      { type: "line", data: bins, symbol: "circle", symbolSize: (v) => 6 + Math.min(14, Math.sqrt(v[2]) / 3), lineStyle: { color }, itemStyle: { color } },
-    ],
-  });
-}
-
 // Half-ring gauge for one probability, with a tick at the typical level
 export function gaugeChart(el, value, { color, typical }) {
   const c = colors();
@@ -234,15 +199,5 @@ export function gaugeChart(el, value, { color, typical }) {
       axisTick: { show: false }, splitLine: { show: false }, axisLabel: { show: false }, pointer: { show: false }, anchor: { show: false },
       title: { show: false }, detail: { show: false }, data: [{ value }],
     }],
-  });
-}
-
-// Small line of the P50 forecast without axes
-export function sparkChart(el, rows, { color }) {
-  return draw(el, {
-    animation: false, grid: { left: 6, right: 6, top: 4, bottom: 4 },
-    xAxis: { type: "time", show: false }, yAxis: { type: "value", show: false, scale: true },
-    series: [{ type: "line", data: rows.map((r) => [r.t, r.p50]), symbol: "none", smooth: 0.3, lineStyle: { width: 2, color },
-      areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: color + "55" }, { offset: 1, color: color + "00" }]) } }],
   });
 }

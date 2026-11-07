@@ -1,5 +1,5 @@
 import { Q, HOUR, fmt, fmtTime, fmtDay, fmtFull, pct, eur, esc, scoreWindow, alertHistory } from "./data.js";
-import { priceChart, riskChart, directionChart, trackChart, barChart, heatmap, reliabilityChart, gaugeChart, contextChart, colors, draw } from "./charts.js";
+import { priceChart, riskChart, directionChart, trackChart, barChart, gaugeChart, contextChart, colors } from "./charts.js";
 
 const KIND = {
   spike_high: { name: "Spike risk above spot", icon: "▲", color: "--high" },
@@ -46,14 +46,34 @@ function lanes(rows, tz) {
     <span style="--c:var(--high)">Spike &gt; 50 € above spot</span><span style="--c:var(--low)">Spike &gt; 50 € below spot</span><span class="hint">Stronger colour = more likely</span></div>`;
 }
 
-// One alert: a compact line that opens to the message, drivers and suggestions
-function alertCard(a, tz) {
+// One plain sentence with the numbers behind an alert, from its forecast rows
+function explain(a, rows) {
+  const w = rows.filter((r) => r.step >= a.steps[0] && r.step <= a.steps[1]);
+  if (!w.length) return "";
+  const avg = (k) => w.reduce((s, r) => s + r[k], 0) / w.length;
+  const spot = window.spotAt ? w.reduce((s, r) => s + (window.spotAt(r.t) ?? 0), 0) / w.length : null;
+  const vsSpot = (word) => (spot != null ? `the forecast is ${eur(avg("p50"))} €, ${word} spot ${eur(spot)} €` : `the price forecast is ${word} spot`);
+  if (a.kind === "conflict") {
+    return avg("up") >= avg("down")
+      ? `Up-regulation ${pct(Math.max(...w.map((r) => r.up)))} likely (usually means price above spot), but ${vsSpot("below")}.`
+      : `Down-regulation ${pct(Math.max(...w.map((r) => r.down)))} likely (usually means price below spot), but ${vsSpot("above")}.`;
+  }
+  if (a.kind === "spike_high") return `${pct(a.peak)} chance the price ends more than 50 €/MWh above spot (typical ${pct(window.state.rates.high)}).`;
+  if (a.kind === "spike_low") return `${pct(a.peak)} chance the price ends more than 50 €/MWh below spot (typical ${pct(window.state.rates.low)}).`;
+  if (a.kind === "direction_up") return `${pct(a.peak)} chance the system needs up-regulation, which usually lifts the price above spot.`;
+  if (a.kind === "moved") return `${a.title.includes("up") ? "Up" : "Down"} by as much as ${eur(a.peak)} €/MWh compared with the forecast an hour earlier.`;
+  if (a.kind === "uncertainty") return `P10–P90 up to ${eur(a.peak)} € wide, wider than 95% of the past week's forecasts: the model is less sure.`;
+  return "";
+}
+
+// One alert: a compact line with a plain explanation, opening to drivers and suggestions
+function alertCard(a, tz, rows) {
   const k = KIND[a.kind];
   const peak = a.kind === "moved" ? `${eur(a.peak)}<small>€/MWh</small>` : a.kind === "uncertainty" ? `${eur(a.peak)}<small>€ wide</small>` : `${pct(a.peak)}<small>peak</small>`;
   return `<details class="alert" style="--k:var(${k.color})">
     <summary><div class="ico">${k.icon}</div>
-      <div><div class="t">${k.name}</div><div class="when">${fmtDay(a.start, tz)} · ${fmtTime(a.start, tz)}–${fmtTime(a.end, tz)}</div></div>
-      <div class="peak">${peak}</div></summary>
+      <div><div class="t">${k.name} <span class="when">· ${fmtTime(a.start, tz)}–${fmtTime(a.end, tz)}</span></div><div class="why-line">${esc(explain(a, rows))}</div></div>
+      <div class="peak">${peak}</div><div class="chev" title="Show drivers and what to check"><svg viewBox="0 0 16 16" width="14" height="14"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div></summary>
     <div class="body"><p>${esc(a.message)}</p>
       ${a.drivers?.length ? `<div class="chips">${a.drivers.map((d) => `<span class="chip">${esc(d)}</span>`).join("")}</div>` : ""}
       <ul>${a.review.map((r) => `<li>${esc(r)}</li>`).join("")}</ul></div>
@@ -78,6 +98,7 @@ function quarterCard(r, tz) {
 // What is worth checking right now: the coming hour only
 export function renderNow(root, ds, i) {
   const tz = window.state.tz, rows = ds.rows(i), origin = ds.origins[i], rates = ds.raw.base_rates, c = colors();
+  window.state.rates = rates;
   const hour = rows.slice(0, 4);
   const all = ds.alerts(i);
   const now = all.filter((a) => a.start < origin + HOUR);
@@ -112,11 +133,11 @@ export function renderNow(root, ds, i) {
         <div class="foot">average width this hour · lowest P10 ${eur(Math.min(...hour.map((r) => r.p10)))}, highest P90 ${eur(Math.max(...hour.map((r) => r.p90)))}</div></div>
     </div>
     <div class="grid split">
-      <div class="card"><div class="card-head"><h2>Worth checking now</h2><span class="hint">${now.length ? "tap for details" : ""}</span></div>
-        <div class="alerts">${now.length ? now.map((a) => alertCard(a, tz)).join("") :
+      <div class="card"><div class="card-head"><h2>Worth checking now</h2><span class="hint">${now.length ? "open a card for drivers and what to check" : ""}</span></div>
+        <div class="alerts">${now.length ? now.map((a) => alertCard(a, tz, rows)).join("") :
       `<div class="calm"><div class="badge">✓</div><b>Nothing for the coming hour</b></div>`}</div>
         ${later.length ? `<div class="card-head mt"><h2 class="muted">Later today</h2><button class="btn ghost" id="to-next">Next 10 h →</button></div>
-          <div class="alerts">${later.map((a) => alertCard(a, tz)).join("")}</div>` : ""}</div>
+          <div class="alerts">${later.map((a) => alertCard(a, tz, rows)).join("")}</div>` : ""}</div>
       <div class="card"><div class="card-head"><h2>Recent prices → coming hours</h2><span class="hint">last 2 h published · prices appear about an hour late · forecast from now</span></div>
         <div class="chart tall" id="now-ctx"></div></div>
     </div>`;
@@ -245,9 +266,15 @@ export function renderHindsight(root, ds, i) {
         <div class="card"><div class="card-head"><h2>MAE Error by hours ahead</h2><span class="hint">€/MWh</span></div><div class="chart mid" id="byhour"></div></div>
         <div class="card"><div class="card-head"><h2>Alerts → outcome</h2><span class="hint">each event once</span></div>
           <div class="tablewrap" style="max-height:250px;overflow:auto">${alertTable(hist, tz)}</div></div>
-      </div>`;
+      </div>
+      <div class="card mt"><div class="card-head"><h2>What moves the price forecast</h2><span class="hint">mean SHAP contribution to P50, €/MWh, test period</span></div>
+        <div class="chart" id="imp" style="height:380px"></div></div>`;
     trackChart(document.getElementById("track"), points, { tz });
     barChart(document.getElementById("byhour"), s.maeByHour.map((_, h) => `${h + 1}h`), s.maeByHour, { name: "", color: c.accent });
+    const imp = (ds.raw.meta.importance || []).slice(0, 12);
+    if (imp.length) barChart(document.getElementById("imp"), imp.map((r) => window.DRIVER_NAMES[r.feature] || r.feature), imp.map((r) => r.mean_abs_contribution),
+      { name: "", horizontal: true, format: (v) => v.toFixed(2) });
+    else document.getElementById("imp").innerHTML = `<div class="calm small">Shown for the validation and test periods</div>`;
   }
   root.querySelectorAll("#win button").forEach((b) => (b.onclick = () => { window.state.window = b.dataset.w; window.render(); }));
   for (const id of ["c-from", "c-to"]) {
@@ -270,81 +297,6 @@ function alertTable(list, tz) {
     return `<tr><td style="color:var(${k.color});width:24px">${k.icon}</td><td>${k.name}</td><td class="muted">${fmtDay(a.start, tz)} ${fmtTime(a.start, tz)}–${fmtTime(a.end, tz)}</td>
       <td class="num">${pct(a.peak)}</td><td class="num">${res}</td></tr>`;
   }).join("")}</tbody></table>`;
-}
-
-// Insights over everything known at the selected time
-export function renderInsights(root, ds, i) {
-  const tz = window.state.tz, asOf = ds.origins[i], from = asOf - 30 * 24 * HOUR, c = colors();
-  const stats = (ds.raw.meta.alert_stats || []).filter((s) => s.inside != null);
-  const days = [], cells = [], marks = [], dayIndex = new Map();
-  const bins = { hi: Array.from({ length: 10 }, () => [0, 0, 0]), lo: Array.from({ length: 10 }, () => [0, 0, 0]) };
-  const width = [];
-  for (let t = Math.max(from, ds.origins[0] + HOUR); t < asOf; t += Q) {
-    const f = ds.aheadRow(t, 1);
-    if (!f) continue;
-    const day = fmt(t, tz, { day: "numeric", month: "short" }), hour = Number(fmt(t, tz, { hour: "2-digit", hour12: false })) % 24;
-    if (!dayIndex.has(day)) { dayIndex.set(day, days.length); days.push(day); }
-    cells.push([hour, dayIndex.get(day), f.hi, `${dayIndex.get(day)}:${hour}`]);
-    const a = ds.outcome(t, asOf);
-    if (!a) continue;
-    if (a.hi) marks.push([hour, dayIndex.get(day)]);
-    for (const [k, p, o] of [["hi", f.hi, a.hi], ["lo", f.lo, a.lo]]) {
-      const b = bins[k][Math.min(9, Math.floor(p * 10))];
-      b[0] += p; b[1] += o; b[2] += 1;
-    }
-    width.push([f.p90 - f.p10, Math.abs(a.price - f.p50)]);
-  }
-  const merged = new Map();
-  for (const [h, d, p, key] of cells) { const m = merged.get(key) || [h, d, 0, 0]; m[2] += p; m[3] += 1; merged.set(key, m); }
-  const heat = [...merged.values()].map(([h, d, s, n]) => [h, d, s / n]);
-  const rel = (k) => bins[k].filter((b) => b[2] >= 10).map((b) => [b[0] / b[2], b[1] / b[2], b[2]]);
-  width.sort((a, b) => a[0] - b[0]);
-  const fifths = Array.from({ length: 5 }, (_, q) => width.slice(Math.floor((q * width.length) / 5), Math.floor(((q + 1) * width.length) / 5)));
-  const mae = fifths.map((f) => (f.length ? f.reduce((a, b) => a + b[1], 0) / f.length : 0));
-  const ratio = mae[0] ? mae[4] / mae[0] : null;
-  const best = stats.find((s) => s.kind === "spike_high" && s.period === "Test") || stats[0];
-  root.innerHTML = `
-    <div class="tiles" style="grid-template-columns:repeat(3,minmax(0,1fr))">
-      <div class="card tile"><div class="label">Wide band = big error</div><div class="big">${ratio ? `${ratio.toFixed(0)}×` : "–"}</div><div class="foot">MAE of widest vs narrowest fifth, last 30 days</div></div>
-      <div class="card tile"><div class="label">Spike-above alerts hit</div><div class="big" style="color:var(--high)">${best ? `${(best.inside / best.overall).toFixed(1)}×` : "–"}</div><div class="foot">more spikes inside alerts than average (test)</div></div>
-      <div class="card tile"><div class="label">Spikes caught in window</div><div class="big">${best ? pct(best.window_hit) : "–"}</div><div class="foot">of spike-above alerts saw a spike (test)</div></div>
-    </div>
-    <div class="grid cols-2">
-      <div class="card"><div class="card-head"><h2>When does spike risk above spot build?</h2><span class="hint">1 h ahead · last 30 days · dots: actual spikes</span></div><div class="chart tall" id="heat"></div></div>
-      <div class="card"><div class="card-head"><h2>Wider band, bigger error</h2><span class="hint">MAE by band-width fifth</span></div><div class="chart tall" id="width"></div></div>
-    </div>
-    <div class="grid cols-2 mt">
-      <div class="card"><div class="card-head"><h2>Are the probabilities honest?</h2><span class="hint">on the dashed line = calibrated</span></div><div class="chart" id="rel"></div></div>
-      <div class="card"><div class="card-head"><h2>Do alerts point to events?</h2><span class="hint">event rate inside alert ÷ overall rate</span></div><div class="chart" id="lift"></div></div>
-    </div>
-    <div class="card mt"><div class="card-head"><h2>What moves the price forecast</h2><span class="hint">mean SHAP contribution to P50, €/MWh</span></div><div class="chart" id="imp" style="height:400px"></div></div>`;
-  heatmap(document.getElementById("heat"), days, Array.from({ length: 24 }, (_, h) => h), heat, { max: 0.4, color: c.high, name: "Spike risk above spot", marks, tz });
-  barChart(document.getElementById("width"), ["Narrowest", "2", "3", "4", "Widest"], mae, { name: "", color: c.warn });
-  const chart = reliabilityChart(document.getElementById("rel"), rel("hi"), { color: c.high });
-  chart.setOption({
-    legend: { show: true, top: 0, right: 0, data: ["▲ Spikes above spot", "▼ Spikes below spot"], textStyle: { color: c.muted } },
-    series: [{}, { name: "▲ Spikes above spot" }, { name: "▼ Spikes below spot", type: "line", data: rel("lo"), symbol: "circle", lineStyle: { color: c.low }, itemStyle: { color: c.low }, symbolSize: 8 }]
-  });
-  if (stats.length) {
-    const kinds = ["spike_high", "spike_low", "direction_up"];
-    const val = kinds.map((k) => { const s = stats.find((x) => x.kind === k && x.period === "Validation"); return s ? +(s.inside / s.overall).toFixed(2) : null; });
-    const test = kinds.map((k) => { const s = stats.find((x) => x.kind === k && x.period === "Test"); return s ? +(s.inside / s.overall).toFixed(2) : null; });
-    draw(document.getElementById("lift"), {
-      animation: false, textStyle: { color: c.text }, grid: { left: 130, right: 44, top: 30, bottom: 24 },
-      legend: { top: 0, right: 0, textStyle: { color: c.muted }, data: ["Validation", "Test"] },
-      tooltip: { trigger: "axis", backgroundColor: c.panel, borderColor: c.line, textStyle: { color: c.text }, valueFormatter: (v) => `${v}×` },
-      xAxis: { type: "value", axisLabel: { color: c.muted, formatter: "{value}×" }, splitLine: { lineStyle: { color: c.line } } },
-      yAxis: { type: "category", inverse: true, data: kinds.map((k) => `${KIND[k].icon} ${KIND[k].name}`), axisLabel: { color: c.muted } },
-      series: [
-        { name: "Validation", type: "bar", data: val, itemStyle: { color: c.accent, borderRadius: 4 }, barGap: "20%", label: { show: true, position: "right", color: c.muted, formatter: "{c}×" } },
-        { name: "Test", type: "bar", data: test, itemStyle: { color: c.muted, borderRadius: 4 }, label: { show: true, position: "right", color: c.muted, formatter: "{c}×" } },
-      ],
-    });
-  } else document.getElementById("lift").innerHTML = `<div class="calm small">Shown for the validation and test periods</div>`;
-  const imp = (ds.raw.meta.importance || []).slice(0, 12);
-  if (imp.length) barChart(document.getElementById("imp"), imp.map((r) => window.DRIVER_NAMES[r.feature] || r.feature), imp.map((r) => r.mean_abs_contribution),
-    { name: "", horizontal: true, format: (v) => v.toFixed(2) });
-  else document.getElementById("imp").innerHTML = `<div class="calm small">Shown for the validation and test periods</div>`;
 }
 
 // Model, data rule and API

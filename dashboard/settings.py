@@ -56,6 +56,7 @@ ALERTS = {
     "uncertainty_percentile": 0.95,
     "conflict_gap_eur": 20.0,
     "min_quarters": 2,
+    "merge_gap": 4,
 }
 
 # Plain-language names of the model inputs, used for drivers

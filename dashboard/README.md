@@ -24,8 +24,7 @@ python -m dashboard.build_data
 |---|---|
 | **Now** | The coming hour only: each quarter-hour's P50, range, risks and direction, the last 2 hours of published prices and the forecast from now, and the alerts that matter now. Later alerts are listed below them |
 | **Next 10 hours** | Colour lanes for direction and spike risk, P50 with the P10–P90 range, spike risk above and below spot, up/down/none regulation, an hourly table with drivers, and a CSV download |
-| **Hindsight** | Scores for the previous day, week, month or a custom date range, forecast against actual for the last 7 days, error by horizon, and alerts with what followed |
-| **Insights** | When spike risk above spot concentrates, how interval width predicts error, whether the probabilities are honest, whether alerts mean something, and the main drivers |
+| **Hindsight** | Scores for the previous day, week, month or a custom date range, forecast against actual, error by horizon, alerts with what followed, and the inputs that move the price forecast most |
 | **Run a forecast** | Upload the starter package files and get a forecast, the official validator result and, when outcomes are in the data, the official score |
 | **About & API** | Model summary and API endpoints |
 
@@ -35,7 +34,7 @@ python -m dashboard.build_data
 
 ## Alerts
 
-Each alert covers a window of consecutive quarter-hours, names the main drivers and lists suggestions to review. They are never trading or operating instructions, because open data doesn't show available capacity, marginal costs or commitments.
+Each alert covers a window of quarter-hours (windows of the same kind less than an hour apart are joined), states in one line what the numbers are, names the main drivers and lists suggestions to review. They are never trading or operating instructions, because open data doesn't show available capacity, marginal costs or commitments.
 
 | Alert | Trigger |
 |---|---|
@@ -46,7 +45,7 @@ Each alert covers a window of consecutive quarter-hours, names the main drivers 
 | Forecast moved | P50 moved by 25 €/MWh or more since the forecast an hour earlier, for at least 30 minutes |
 | High uncertainty | P10–P90 width above the 95th percentile of the past week's forecasts |
 
-The thresholds were set once on the validation period, for about 1–2 alerts per update on average, and then frozen. **Insights** shows how often the event followed: inside spike-above alerts, spikes happened 3.5 times as often as average on validation and 2.3 times as often on test.
+The thresholds were set once on the validation period, for about 1–2 alerts per update on average, and then frozen. Measured on the validation and test periods: inside spike-above alerts, spikes happened 3.5 times as often as average on validation and 2.3 times as often on test.
 
 ## Forecast from your own files
 

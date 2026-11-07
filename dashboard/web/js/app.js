@@ -1,6 +1,6 @@
 import { Dataset, fmtDay, fmtTime, HOUR } from "./data.js";
 import { disposeAll } from "./charts.js";
-import { renderNow, renderNext, renderHindsight, renderInsights, renderAbout } from "./views.js";
+import { renderNow, renderNext, renderHindsight, renderAbout } from "./views.js";
 import { renderRun } from "./upload.js";
 
 window.DRIVER_NAMES = {
@@ -19,7 +19,7 @@ const recall = (k) => { try { return store?.getItem(k); } catch { return null; }
 
 window.state = { view: "now", tz: "Europe/Helsinki", reveal: false, showPrev: true, window: "week", datasets: [], ds: 0, i: 0, playing: null };
 const S = window.state;
-const VIEWS = { now: renderNow, next: renderNext, hindsight: renderHindsight, insights: renderInsights, run: renderRun, about: renderAbout };
+const VIEWS = { now: renderNow, next: renderNext, hindsight: renderHindsight, run: renderRun, about: renderAbout };
 
 const $ = (id) => document.getElementById(id);
 
