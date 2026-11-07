@@ -1,4 +1,4 @@
-import { Dataset, fmtFull, fmtTime, HOUR } from "./data.js";
+import { Dataset, fmtDay, fmtTime, HOUR } from "./data.js";
 import { disposeAll } from "./charts.js";
 import { renderNow, renderNext, renderHindsight, renderInsights, renderAbout } from "./views.js";
 import { renderRun } from "./upload.js";
@@ -40,10 +40,13 @@ const current = () => S.datasets[S.ds];
 function header() {
   const ds = current();
   const o = ds.origins[S.i], cut = ds.cutoff(S.i);
-  $("origin-label").textContent = fmtFull(o, S.tz);
-  $("origin-label").title = "Forecast made at this time. Every view shows only what was known then.";
+  $("origin-day").textContent = fmtDay(o, S.tz);
+  $("origin-time").textContent = fmtTime(o, S.tz);
   $("origin-slider").max = ds.origins.length - 1;
   $("origin-slider").value = S.i;
+  $("origin-slider").style.setProperty("--fill", `${(S.i / Math.max(1, ds.origins.length - 1)) * 100}%`);
+  $("range-start").textContent = fmtDay(ds.origins[0], S.tz).replace(/^\w+ /, "");
+  $("range-end").textContent = fmtDay(ds.origins[ds.origins.length - 1], S.tz).replace(/^\w+ /, "");
   const period = ds.period(S.i);
   const kind = ds.raw.meta.source === "upload" ? "upload" : period?.name === "Test" ? "test" : "val";
   const age = Math.round((o - cut) / 60000);

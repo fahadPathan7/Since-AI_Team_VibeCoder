@@ -371,5 +371,6 @@ export function renderAbout(root) {
           <tr><td><code>POST /api/jobs</code></td><td class="muted">forecast your files</td></tr>
         </tbody></table>
         <pre>curl "${host}/api/forecast?origin=2026-10-08T02:00:00Z"</pre></div>
-    </div>`;
+    </div>
+    <p class="hint" style="margin-top:14px">Contains data from Fingrid Open Data and the ENTSO-E Transparency Platform (CC BY 4.0).</p>`;
 }

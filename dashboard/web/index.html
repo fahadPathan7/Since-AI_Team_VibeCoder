@@ -16,15 +16,26 @@
       <div><h1>Imbalance Price Watch</h1><small>Finland · next 10 hours · Finnish time</small></div>
     </div>
     <div class="timebar" id="timebar">
-      <button class="icon" data-shift="-24" title="One day earlier (Shift + ←)">−1d</button>
-      <button class="icon" data-shift="-1" title="One hour earlier (←)">−1h</button>
-      <div class="origin">
-        <strong id="origin-label">…</strong>
-        <input type="range" id="origin-slider" min="0" max="0" value="0" aria-label="Forecast time">
+      <div class="tb-main">
+        <div class="seg-btns">
+          <button data-shift="-24" title="One day earlier (Shift + ←)">«<span>1d</span></button>
+          <button data-shift="-1" title="One hour earlier (←)">‹<span>1h</span></button>
+        </div>
+        <div class="origin" title="Forecast made at this time. Every view shows only what was known then.">
+          <span id="origin-day">…</span>
+          <strong id="origin-time">…</strong>
+        </div>
+        <div class="seg-btns">
+          <button data-shift="1" title="One hour later (→)"><span>1h</span>›</button>
+          <button data-shift="24" title="One day later (Shift + →)"><span>1d</span>»</button>
+        </div>
+        <button class="play" id="play" title="Replay: step the forecast time forward one hour per second">▶ Replay</button>
       </div>
-      <button class="icon" data-shift="1" title="One hour later (→)">+1h</button>
-      <button class="icon" data-shift="24" title="One day later (Shift + →)">+1d</button>
-      <button class="icon play" id="play" title="Replay: step the forecast time forward one hour per second">▶ Replay</button>
+      <div class="tb-slider">
+        <span id="range-start"></span>
+        <input type="range" id="origin-slider" min="0" max="0" value="0" aria-label="Forecast time">
+        <span id="range-end"></span>
+      </div>
     </div>
     <div class="settings">
       <select id="dataset" aria-label="Data set"></select>
@@ -46,7 +57,6 @@
 
   <main id="view"></main>
 
-  <footer>Decision support, not trading advice · Data: Fingrid, ENTSO-E (CC BY 4.0) · Spot prices (licensed) shown only in the local version</footer>
   <script type="module" src="js/app.js"></script>
 </body>
 </html>
