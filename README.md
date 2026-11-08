@@ -1,16 +1,89 @@
 # Turku Energia imbalance price forecast
 
-Forecast of the Finnish imbalance price for the next 10 hours in 15-minute steps. Outputs are `p10`, `p50`, `p90`, regulation direction, exceptional price probabilities and main drivers.
+Forecast of the Finnish imbalance price for the next 10 hours in 15-minute steps: `p10`, `p50`, `p90`, regulation direction, spike probabilities and main drivers. Includes a dashboard (ValoBalance) for a shift supervisor or trader.
 
-Live dashboard (ValoBalance): https://d33zptc1t0y8ga.cloudfront.net
+## Our result
+
+Scored with the organisers' own `score.py` on 7 Sep - 4 Oct, trained only on data usable by 7 Sep:
+
+| | Official baseline | **Our model** | Better by |
+|---|---:|---:|---:|
+| Price error (MAE, EUR/MWh) | 66.20 | **42.29** | 36% |
+| Interval score (mean pinball) | 24.18 | **11.91** | 51% |
+| Spike Brier | 0.1132 | **0.0922** | 19% |
+| Direction Brier | 0.4509 | **0.3987** | 12% |
+| P10-P90 coverage (target 0.80) | 0.68 | **0.79** | |
+
+The same period helped us pick the design, so treat it as optimistic. The official validator passes on `outputs/forecast_backtest.csv`, and a leakage test checks that no feature can see data before it was usable.
+
+## The dashboard
+
+Run it with `python -m dashboard` and open http://127.0.0.1:8000.
+
+**Now**: what needs attention in the coming hour, with plain-language alerts and the latest prices.
+
+![Now view](docs/screenshots/now.png)
+
+---
+
+**Next 10 h**: direction and spike lanes, P50 with the P10-P90 range, and a CSV download.
+
+![Next 10 hours](docs/screenshots/next.png)
+
+---
+
+**Hindsight**: how past forecasts did. Replay any moment and see only what was known then.
+
+![Hindsight](docs/screenshots/hindsight.png)
+
+---
+
+**Run a forecast**: upload the starter files, get a forecast and the official score.
+
+![Run a forecast](docs/screenshots/run.png)
+
+## What we did
+
+1. **Studied the price rules.** Spot is the anchor, regulation direction picks the side, so we predict the spread (imbalance minus spot), not the price.
+2. **Built leakage-proof features.** Every value is read as of its `first_usable_origin_utc`. 21 features, strong regularisation.
+3. **Trained LightGBM models** per group of forecast steps, averaged over seeds, for quantiles, spikes and direction.
+4. **Tested choices on three time folds**, not one month. Simpler beat complex.
+5. **Built the dashboard and API** so the forecast can be used, not just scored.
+
+Full reasoning and numbers are in `docs/evaluation_report.pdf`.
+
+### What the data showed
+
+**Spread by direction.** Up-regulation prices sit above spot and down-regulation below it, so we model the spread to spot rather than the price itself.
+
+![Spread by direction](docs/figures/fig1_spread_by_direction.png)
+
+---
+
+**Weekly volatility.** The market's volatility shifts from week to week, which is why we test on three time folds.
+
+![Weekly volatility](docs/figures/fig2_weekly_volatility.png)
+
+---
+
+Spikes and up-regulation follow system conditions: net demand, consumption forecast error and the spot level.
+
+![Rates by system condition](docs/figures/fig5_system_conditions.png)
+
+---
+
+Our error stays almost flat over the 10 hours, while the baseline gets worse the further ahead it looks.
+
+![Skill by forecast hour](docs/figures/fig6_horizon.png)
+
+## Where things are
 
 | What | Where |
 |---|---|
 | Forecast file | `outputs/forecast_backtest.csv` |
 | Evaluation report | `docs/evaluation_report.pdf` |
-| Data sources, services, models and software, with usage rights | `docs/components.pdf` |
-| Dashboard and API (ValoBalance) | `dashboard/`, run locally with `python -m dashboard` |
-| AWS hosting | `infra/` |
+| Data sources, models and licences | `docs/components.pdf` |
+| Dashboard and API | `dashboard/` |
 
 ## Quick start with Docker (no Python setup)
 
@@ -32,19 +105,19 @@ On Windows PowerShell, use `-v "${PWD}/outputs:/app/outputs"`. The forecast is w
 
 **3. Open the dashboard (ValoBalance):**
 
-The dashboard is hosted on AWS, so nothing needs to be installed: **https://d33zptc1t0y8ga.cloudfront.net**
+Run it locally:
 
-To run it locally instead:
+Start it with:
 
 ```bash
 docker run --rm -p 8000:8000 turku-forecast python -m dashboard --host 0.0.0.0
 ```
 
-Then open http://localhost:8000. The local version also shows the spot price, which the hosted version leaves out because of its licence.
+Then open http://localhost:8000.
 
 To run a single step, add the command at the end, for example `docker run --rm turku-forecast python -m pytest tests/ -q`.
 
-## Setup
+## Manual setup
 
 Python 3.11 or newer. Tested on macOS with Python 3.14. On macOS, LightGBM also needs `libomp`.
 
@@ -83,7 +156,7 @@ To open the dashboard and API at http://127.0.0.1:8000:
 python -m dashboard
 ```
 
-`dashboard/README.md` describes the views, the alerts and how to forecast from your own files. `infra/README.md` describes hosting on AWS.
+`dashboard/README.md` describes the views, the alerts and how to forecast from your own files.
 
 To rerun the analysis after these commands:
 
@@ -166,7 +239,6 @@ The wide file is not the training table. One wide row holds values from a single
 src/         code: config, make_wide, asof, features, models, submission, run
 tests/       leakage, data and dashboard tests
 dashboard/   dashboard page, API, alerts and forecast runs on uploaded files
-infra/       Terraform and deploy script for AWS
 notebooks/   exploratory analysis and validation diagnostics
 docs/        report, component list, charts, measured values
 data/        input files
