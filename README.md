@@ -2,6 +2,8 @@
 
 Forecast of the Finnish imbalance price for the next 10 hours in 15-minute steps: `p10`, `p50`, `p90`, regulation direction, spike probabilities and main drivers. Includes a dashboard (ValoBalance) for a shift supervisor or trader.
 
+**Markets used:** the Nord Pool day-ahead (spot) price as the anchor, and the Finnish balancing markets, **mFRR** (manual frequency restoration reserve, which sets the up and down regulation prices) and **aFRR** (automatic frequency restoration reserve), as inputs.
+
 ## Our result
 
 Scored with the organisers' own `score.py` on 7 Sep - 4 Oct, trained only on data usable by 7 Sep:
