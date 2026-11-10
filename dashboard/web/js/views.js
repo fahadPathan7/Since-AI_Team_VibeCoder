@@ -344,4 +344,10 @@ export function renderAbout(root) {
         </tbody></table>
         <pre>curl "${host}/api/forecast?origin=2026-10-08T02:00:00Z"</pre></div>
     </div>`;
+  if (window.state.static) {
+    root.querySelector("td .tag.upload")?.closest("tr")?.remove();
+    const card = [...root.querySelectorAll(".card")].find((c) => c.querySelector("h2")?.textContent === "API");
+    if (card) card.innerHTML = `<div class="card-head"><h2>API</h2></div><p class="small muted">This is the static version of the dashboard: it shows the precomputed validation and test forecasts, alerts and scores.
+      The API and forecasts from your own files run in the full version. Run <code>python -m dashboard</code> from the project folder, or use the Docker image.</p>`;
+  }
 }

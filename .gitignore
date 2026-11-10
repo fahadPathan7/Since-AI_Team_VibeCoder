@@ -7,3 +7,5 @@ dashboard/runs/
 infra/terraform/.terraform/
 infra/terraform/*.tfstate*
 infra/terraform/terraform.tfvars
+hf-space/dist/
+hf-space/static-dist/

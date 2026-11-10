@@ -172,7 +172,7 @@ document.addEventListener("keydown", (e) => {
   else if (e.key === " " && e.target.tagName !== "BUTTON") { e.preventDefault(); replay(!S.playing); }
   else if (e.key.toLowerCase() === "n") jumpToAlert(e.shiftKey ? -1 : 1);
   else if (e.key.toLowerCase() === "t") $("theme").click();
-  else if (view) { S.view = view; render(); }
+  else if (view && !(S.static && view === "run")) { S.view = view; render(); }
 });
 
 // Add a data set, such as an uploaded run, and switch to it
@@ -188,14 +188,18 @@ window.addDataset = (raw, label) => {
 async function start() {
   $("view").innerHTML = `<div class="skeleton" aria-label="Loading forecasts"><div style="height:150px"></div>
     <div class="s-row">${`<div style="height:160px"></div>`.repeat(5)}</div><div style="height:380px"></div></div>`;
-  const [raw, spot] = await Promise.all([
+  const [raw, spot, api] = await Promise.all([
     fetch("data/dashboard.json").then((r) => r.json()),
     fetch("api/spot").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    fetch("api/config").then((r) => r.ok && (r.headers.get("content-type") || "").includes("json")).catch(() => false),
   ]);
+  // Without the API (a static host) the precomputed views still work; forecasts from uploaded files need the API
+  S.static = !api;
+  if (S.static) document.querySelector('#tabs [data-view="run"]').hidden = true;
   if (spot) window.spotAt = (t) => spot.values[Math.round((t - spot.t0) / spot.step)] ?? null;
   S.datasets.push(new Dataset(raw, "Validation + test periods"));
   const [view, iso] = location.hash.slice(1).split("/");
-  if (VIEWS[view]) S.view = view;
+  if (VIEWS[view] && !(S.static && view === "run")) S.view = view;
   const ds = current();
   const wanted = iso ? Date.parse(iso + ":00Z") : NaN;
   const testStart = (raw.meta.periods || []).find((p) => p.name === "Test")?.from ?? ds.origins[0];

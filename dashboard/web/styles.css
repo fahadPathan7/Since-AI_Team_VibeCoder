@@ -69,6 +69,7 @@ a { color: var(--accent); }
 code { background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 0 5px; font-size: 12px; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
 kbd { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 5px; font: 600 10.5px/1 inherit; font-family: inherit; color: var(--muted); background: var(--panel); border: 1px solid var(--line); border-bottom-width: 2px; }
 svg { flex: none; }
+[hidden] { display: none !important; }
 ::selection { background: color-mix(in srgb, var(--accent) 30%, transparent); }
 * { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
 
