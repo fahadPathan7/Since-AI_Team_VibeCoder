@@ -33,13 +33,22 @@ window.addEventListener("resize", () => live.forEach((c) => c.resize()));
 // Settings shared by every chart
 function base(c) {
   return {
-    animation: false,
+    animation: Boolean(window.state?.animate), animationDuration: 650, animationEasing: "cubicOut",
     textStyle: { color: c.text, fontFamily: "inherit" },
     grid: { left: 52, right: 18, top: 30, bottom: 34 },
-    tooltip: { trigger: "axis", backgroundColor: c.panel, borderColor: c.line, textStyle: { color: c.text } },
-    legend: { top: 0, right: 0, textStyle: { color: c.muted }, itemWidth: 14, itemHeight: 8 },
+    tooltip: { trigger: "axis", backgroundColor: c.panel, borderColor: c.line, borderWidth: 1, padding: [9, 12], textStyle: { color: c.text, fontSize: 12.5 },
+      extraCssText: "border-radius:12px;box-shadow:0 12px 32px -8px rgba(0,0,0,.35);line-height:1.6",
+      axisPointer: { type: "line", lineStyle: { color: c.muted, width: 1, type: [3, 3] } } },
+    legend: { top: 0, right: 0, textStyle: { color: c.muted }, itemWidth: 14, itemHeight: 8, itemGap: 14, icon: "roundRect" },
   };
 }
+
+// Soft glow under a main line, so it stands out from the reference lines
+const glow = (color) => ({ shadowColor: color, shadowBlur: 10, shadowOffsetY: 3 });
+
+// Vertical fade of one colour, for areas and bars
+const fade = (color, from, to, horizontal = false) => new echarts.graphic.LinearGradient(0, horizontal ? 0 : 0, horizontal ? 1 : 0, horizontal ? 0 : 1,
+  [{ offset: 0, color: echarts.color.modifyAlpha(color, from) }, { offset: 1, color: echarts.color.modifyAlpha(color, to) }]);
 
 // Time axis labelled in the chosen time zone
 function timeAxis(c, tz) {
@@ -63,7 +72,7 @@ export function priceChart(el, rows, { tz, previous, actual }) {
     { name: "P10", type: "line", data: rows.map((r) => [r.t, r.p10]), lineStyle: { opacity: 0 }, symbol: "none", stack: "band", stackStrategy: "all", tooltip: { show: false } },
     { name: "P10–P90 range", type: "line", data: rows.map((r) => [r.t, r.p90 - r.p10]), lineStyle: { opacity: 0 }, symbol: "none", stack: "band", stackStrategy: "all",
       areaStyle: { color: c.band }, color: c.band, tooltip: { show: false } },
-    { name: "Forecast now (P50)", type: "line", data: rows.map((r) => [r.t, r.p50]), symbol: "none", lineStyle: { width: 2.5, color: c.accent }, color: c.accent },
+    { name: "Forecast now (P50)", type: "line", data: rows.map((r) => [r.t, r.p50]), symbol: "none", lineStyle: { width: 2.8, color: c.accent, ...glow(c.accent) }, color: c.accent, z: 5 },
   ];
   if (spot) series.push({ name: "Spot price", type: "line", data: rows.map((r) => [r.t, spot(r.t)]), symbol: "none",
     lineStyle: { width: 1.5, color: c.spot }, color: c.spot });
@@ -92,8 +101,8 @@ export function riskChart(el, rows, { tz, base: rates, actual }) {
   const c = colors();
   const top = Math.min(1, Math.max(0.3, Math.ceil(Math.max(...rows.map((r) => Math.max(r.hi, r.lo))) * 12) / 10));
   const series = [
-    { name: "▲ Spike above spot", type: "line", data: rows.map((r) => [r.t, r.hi]), symbol: "none", lineStyle: { width: 2, color: c.high }, itemStyle: { color: c.high }, areaStyle: { color: c.high, opacity: 0.18 } },
-    { name: "▼ Spike below spot", type: "line", data: rows.map((r) => [r.t, -r.lo]), symbol: "none", lineStyle: { width: 2, color: c.low }, itemStyle: { color: c.low }, areaStyle: { color: c.low, opacity: 0.18 } },
+    { name: "▲ Spike above spot", type: "line", data: rows.map((r) => [r.t, r.hi]), symbol: "none", lineStyle: { width: 2, color: c.high }, itemStyle: { color: c.high }, areaStyle: { color: fade(c.high, 0.42, 0.04) } },
+    { name: "▼ Spike below spot", type: "line", data: rows.map((r) => [r.t, -r.lo]), symbol: "none", lineStyle: { width: 2, color: c.low }, itemStyle: { color: c.low }, areaStyle: { color: fade(c.low, 0.04, 0.42) } },
   ];
   if (rates) series.push(
     { name: "Typical", type: "line", data: rows.map((r) => [r.t, rates.high]), symbol: "none", lineStyle: { type: "dotted", color: c.high }, color: c.muted, tooltip: { show: false } },
@@ -108,7 +117,7 @@ export function riskChart(el, rows, { tz, base: rates, actual }) {
       return `<b>${fmtFull(t, tz)}</b>` + ps.filter((p) => p.seriesName.includes("Spike")).map((p) => `<br>${p.seriesName}: ${pct(Math.abs(p.value[1]), 1)}`).join("");
     } },
     xAxis: timeAxis(c, tz),
-    yAxis: valueAxis(c, "probability", { min: -top, max: top, axisLabel: { color: c.muted, formatter: (v) => pct(Math.abs(v)) } }),
+    yAxis: valueAxis(c, "probability", { min: -top, max: top, interval: top / 2, axisLabel: { color: c.muted, formatter: (v) => pct(Math.abs(v)) } }),
     series,
   });
 }
@@ -139,7 +148,7 @@ export function contextChart(el, past, rows, { tz, origin }) {
   const series = [
     { name: "P10", type: "line", data: rows.map((r) => [r.t, r.p10]), lineStyle: { opacity: 0 }, symbol: "none", stack: "band", stackStrategy: "all", tooltip: { show: false } },
     { name: "P10–P90 range", type: "line", data: rows.map((r) => [r.t, r.p90 - r.p10]), lineStyle: { opacity: 0 }, symbol: "none", stack: "band", stackStrategy: "all", areaStyle: { color: c.band }, color: c.band, tooltip: { show: false } },
-    { name: "Forecast (P50)", type: "line", data: [...rows.map((r) => [r.t, r.p50]), [end, rows[rows.length - 1].p50]], symbol: "circle", symbolSize: 6, lineStyle: { width: 3, color: c.accent }, color: c.accent,
+    { name: "Forecast (P50)", type: "line", data: [...rows.map((r) => [r.t, r.p50]), [end, rows[rows.length - 1].p50]], symbol: "circle", symbolSize: 7, lineStyle: { width: 3, color: c.accent, ...glow(c.accent) }, itemStyle: { color: c.accent, borderColor: c.panel, borderWidth: 2 }, color: c.accent, z: 5,
       markArea: { silent: true, data: [label(lastPublished, origin, "not published yet"), label(origin, origin + 3600000, "coming hour")] } },
     { name: "Published price", type: "line", data: past, symbol: "circle", symbolSize: 4, lineStyle: { width: 2, color: c.text }, color: c.text,
       markLine: { symbol: "none", silent: true, lineStyle: { color: c.muted, type: "dashed" }, label: { formatter: "now", color: c.muted }, data: [{ xAxis: origin }] } },
@@ -160,12 +169,14 @@ export function trackChart(el, points, { tz }) {
     ...base(c),
     xAxis: { ...timeAxis(c, tz), axisLabel: { color: c.muted, formatter: (v) => fmt(v, tz, { day: "numeric", month: "short", hour: "2-digit", hour12: false }), hideOverlap: true } },
     yAxis: valueAxis(c, "€/MWh", { scale: true }),
-    dataZoom: [{ type: "inside" }, { type: "slider", height: 16, bottom: 4, borderColor: c.line }],
+    dataZoom: [{ type: "inside" }, { type: "slider", height: 18, bottom: 4, borderColor: c.line, backgroundColor: "transparent", fillerColor: echarts.color.modifyAlpha(c.accent, 0.14),
+      handleStyle: { color: c.panel, borderColor: c.accent }, moveHandleStyle: { color: c.accent, opacity: 0.4 }, textStyle: { color: c.muted },
+      dataBackground: { lineStyle: { color: c.muted, opacity: 0.4 }, areaStyle: { color: c.muted, opacity: 0.12 } }, selectedDataBackground: { lineStyle: { color: c.accent }, areaStyle: { color: c.accent, opacity: 0.2 } } }],
     grid: { ...base(c).grid, bottom: 50 },
     series: [
       { name: "1 h ahead P10–P90", type: "line", data: points.map((p) => [p.t, p.p10_1]), lineStyle: { opacity: 0 }, symbol: "none", stack: "b", stackStrategy: "all", tooltip: { show: false } },
       { name: "1 h ahead range", type: "line", data: points.map((p) => [p.t, p.p90_1 - p.p10_1]), lineStyle: { opacity: 0 }, symbol: "none", stack: "b", stackStrategy: "all", areaStyle: { color: c.band }, tooltip: { show: false } },
-      { name: "Forecast 1 h ahead", type: "line", data: points.map((p) => [p.t, p.p50_1]), symbol: "none", lineStyle: { color: c.accent, width: 1.6 }, color: c.accent },
+      { name: "Forecast 1 h ahead", type: "line", data: points.map((p) => [p.t, p.p50_1]), symbol: "none", lineStyle: { color: c.accent, width: 2 }, color: c.accent },
       { name: "Forecast 6 h ahead", type: "line", data: points.map((p) => [p.t, p.p50_6]), symbol: "none", lineStyle: { color: c.up, width: 1.2, type: "dashed" }, color: c.up },
       { name: "Actual", type: "line", data: points.map((p) => [p.t, p.y]), symbol: "none", lineStyle: { color: c.high, width: 1.4 }, color: c.high },
     ],
@@ -183,7 +194,9 @@ export function barChart(el, labels, values, { name, color, format = (v) => v.to
     ...base(c), legend: { show: false }, grid: horizontal ? { left: 210, right: 30, top: 10, bottom: 24 } : { left: 48, right: 12, top: 28, bottom: 30 },
     tooltip: { ...base(c).tooltip, valueFormatter: format },
     xAxis: horizontal ? val : cat, yAxis: horizontal ? { ...cat, inverse: true } : val,
-    series: [{ type: "bar", data: values, itemStyle: { color: color || c.accent, borderRadius: 3 }, barMaxWidth: 26 }],
+    series: [{ type: "bar", data: values, barMaxWidth: 26,
+      itemStyle: { color: horizontal ? fade(color || c.accent, 0.55, 1, true) : fade(color || c.accent, 1, 0.55), borderRadius: horizontal ? [0, 4, 4, 0] : [4, 4, 0, 0] },
+      emphasis: { itemStyle: { color: color || c.accent } } }],
   });
 }
 
@@ -191,7 +204,7 @@ export function barChart(el, labels, values, { name, color, format = (v) => v.to
 export function gaugeChart(el, value, { color, typical }) {
   const c = colors();
   return draw(el, {
-    animation: true, animationDuration: 500,
+    animation: Boolean(window.state?.animate), animationDuration: 800, animationEasing: "cubicOut",
     series: [{
       type: "gauge", startAngle: 200, endAngle: -20, min: 0, max: 1, radius: "100%", center: ["50%", "72%"],
       progress: { show: true, width: 10, roundCap: true, itemStyle: { color } },

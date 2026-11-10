@@ -13,7 +13,7 @@
   <header class="topbar">
     <div class="brand">
       <div class="logo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 2L5 14h5.5L9 22l10-13h-5.5z" fill="#fff"/></svg></div>
-      <div><h1>ValoBalance</h1><small>Finland · next 10 hours · Finnish time</small></div>
+      <div><h1>Valo<span>Balance</span></h1><small>Finland · next 10 hours · Finnish time</small></div>
     </div>
     <div class="timebar" id="timebar">
       <div class="tb-main">
@@ -29,32 +29,47 @@
           <button data-shift="1" title="One hour later (→)"><span>1h</span>›</button>
           <button data-shift="24" title="One day later (Shift + →)"><span>1d</span>»</button>
         </div>
-        <button class="play" id="play" title="Replay: step the forecast time forward one hour per second">▶ Replay</button>
+        <button class="mini" id="next-alert" title="Jump to the next time with spike risk in the coming hour (N, Shift + N for the previous one)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l9 15.5H3z"/><path d="M12 10v4.5"/><circle cx="12" cy="16.8" r=".5" fill="currentColor"/></svg><span>Next alert</span></button>
+        <div class="replay">
+          <button class="play" id="play" title="Replay: step the forecast time forward hour by hour (Space)">▶ Replay</button>
+          <button class="speed" id="speed" title="Replay speed">1×</button>
+        </div>
       </div>
       <div class="tb-slider">
         <span id="range-start"></span>
-        <input type="range" id="origin-slider" min="0" max="0" value="0" aria-label="Forecast time">
+        <div class="scrub" title="Times with spike risk in the coming hour: red = above spot, purple = below spot. The mark divides validation from test">
+          <canvas id="ribbon" aria-hidden="true"></canvas>
+          <input type="range" id="origin-slider" min="0" max="0" value="0" aria-label="Forecast time">
+        </div>
         <span id="range-end"></span>
       </div>
     </div>
     <div class="settings">
       <select id="dataset" aria-label="Data set"></select>
-      <button class="round" id="theme" title="Light or dark">◐</button>
+      <button class="round" id="theme" title="Light or dark (T)" aria-label="Switch between light and dark">
+        <svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3l-1.8 1.8M7.1 16.9l-1.8 1.8"/></svg>
+        <svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.2A8 8 0 0 1 9.8 4a8 8 0 1 0 10.2 10.2z"/></svg>
+      </button>
     </div>
   </header>
 
   <div class="subbar">
     <nav class="tabs" id="tabs">
-      <button data-view="now" class="on"><span>◉</span>Now</button>
-      <button data-view="next"><span>↗</span>Next 10 h</button>
-      <button data-view="hindsight"><span>↺</span>Hindsight</button>
-      <button data-view="run"><span>⇪</span>Run a forecast</button>
-      <button data-view="about"><span>ⓘ</span>About &amp; API</button>
+      <button data-view="now" class="on" title="Now (1)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="8.5"/></svg>Now</button>
+      <button data-view="next" title="Next 10 h (2)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l5.5-6 4 3.5L20 6"/><path d="M14.5 6H20v5.5"/></svg>Next 10 h</button>
+      <button data-view="hindsight" title="Hindsight (3)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.6-5.9"/><path d="M4 4.5V9h4.5"/><path d="M12 8v4.5l3 1.8"/></svg>Hindsight</button>
+      <button data-view="run" title="Run a forecast (4)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4"/><path d="M7.5 8.5L12 4l4.5 4.5"/><path d="M4.5 15v3.5a1.5 1.5 0 0 0 1.5 1.5h12a1.5 1.5 0 0 0 1.5-1.5V15"/></svg>Run a forecast</button>
+      <button data-view="about" title="About & API (5)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5"/><circle cx="12" cy="7.8" r=".6" fill="currentColor"/></svg>About &amp; API</button>
     </nav>
     <div class="chips-line" id="freshness"></div>
   </div>
 
   <main id="view"></main>
+
+  <footer>
+    <div class="keys"><span><kbd>←</kbd><kbd>→</kbd> 1 h</span><span><kbd>Shift</kbd> + <kbd>←</kbd><kbd>→</kbd> 1 day</span><span><kbd>Space</kbd> replay</span><span><kbd>N</kbd> next alert</span><span><kbd>1</kbd>–<kbd>5</kbd> views</span><span><kbd>T</kbd> theme</span></div>
+    <div>Alerts are suggestions to review, never trading or operating instructions · Contains data from Fingrid Open Data and the ENTSO-E Transparency Platform (CC BY 4.0)</div>
+  </footer>
 
   <script type="module" src="js/app.js"></script>
 </body>

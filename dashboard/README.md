@@ -28,7 +28,17 @@ python -m dashboard.build_data
 | **Run a forecast** | Upload the starter package files and get a forecast, the official validator result and, when outcomes are in the data, the official score |
 | **About & API** | Model summary and API endpoints |
 
-**Moving back in time.** The time control at the top (buttons, slider, keyboard arrows, or **Replay**, which steps forward one hour per second) sets the forecast time. Every view then uses only what was known at that moment: forecasts made by then and prices published by then. *Show what happened* in **Next 10 hours** adds the actual price, spikes and direction, clearly marked as hindsight. All times are Finnish time.
+**Moving back in time.** The time control at the top sets the forecast time. Every view then uses only what was known at that moment: forecasts made by then and prices published by then. *Show what happened* in **Next 10 hours** adds the actual price, spikes and direction, clearly marked as hindsight. All times are Finnish time.
+
+| Control | What it does | Key |
+|---|---|---|
+| 1h / 1d buttons | Step the forecast time by an hour or a day | `←` `→`, with `Shift` for a day |
+| Slider with alert ribbon | Drag to any time. The ribbon above the slider marks the times with spike risk in the coming hour (red: above spot, purple: below spot) and where validation ends and test begins | |
+| Next alert | Jump to the next time with spike risk in the coming hour, so the Now view is never calm there | `N`, `Shift` + `N` for the previous one |
+| Replay | Step forward one forecast at a time, at 1, 2 or 4 steps per second | `Space` |
+| Tabs | Switch view | `1` to `5` |
+
+**Light and dark.** The page follows the system setting until you pick a theme with the button at the top right (or `T`); the choice is remembered in the browser. Adding `?theme=dark` or `?theme=light` to the address forces one, which is handy for screenshots. Animations are turned off when the system asks for reduced motion.
 
 **Data sets.** *Validation* (7 Sep – 4 Oct) uses a model trained only on data usable by 6 Sep. *Test* (5 Oct – 1 Nov) is the submitted forecast. Uploaded runs are added to the data set list.
 

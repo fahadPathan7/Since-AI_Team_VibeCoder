@@ -20,11 +20,26 @@ The same period helped us pick the design, so treat it as optimistic. The offici
 
 ## The dashboard
 
-Run it with `python -m dashboard` and open http://127.0.0.1:8000.
+Run it with `python -m dashboard` and open http://127.0.0.1:8000. It follows your system's light or dark setting, and the button at the top right switches between them.
 
-**Now**: what needs attention in the coming hour, with plain-language alerts and the latest prices.
+**Now**: what needs attention in the coming hour, with plain-language alerts and the latest prices. Each quarter-hour shows its P50, its P10-P90 range on a shared scale, spike risks and direction.
 
 ![Now view](docs/screenshots/now.png)
+
+The same view in the light theme:
+
+![Now view, light theme](docs/screenshots/now-light.png)
+
+**Moving through time.** The control at the top sets the forecast time, and every view then shows only what was known at that moment.
+
+| Control | What it does | Key |
+|---|---|---|
+| 1h / 1d buttons | Step the forecast time by an hour or a day | `←` `→`, with `Shift` for a day |
+| Slider with alert ribbon | Drag to any time. The ribbon marks the times with spike risk in the coming hour: red above spot, purple below | |
+| Next alert | Jump to the next time with spike risk in the coming hour, so the Now view is never calm there | `N`, `Shift` + `N` for the previous one |
+| Replay | Step forward hour by hour, at 1×, 2× or 4× speed | `Space` |
+| Tabs | Switch view | `1` to `5` |
+| Theme | Light or dark | `T` |
 
 ---
 

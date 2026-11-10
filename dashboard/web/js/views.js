@@ -12,6 +12,17 @@ const KIND = {
 const info = (text) => `<span class="info" title="${esc(text)}">i</span>`;
 const mix = (v, p) => `color-mix(in srgb, var(${v}) ${Math.round(Math.max(0, Math.min(1, p)) * 100)}%, var(--panel-2))`;
 
+// Small trend line under a tile, drawn as inline SVG
+function spark(values, color = "--accent", title = "") {
+  const v = values.filter((x) => x != null);
+  if (v.length < 2) return "";
+  const lo = Math.min(...v), range = Math.max(...v) - lo || 1;
+  const pts = v.map((y, k) => `${((k / (v.length - 1)) * 100).toFixed(1)},${(26 - ((y - lo) / range) * 22).toFixed(1)}`).join(" ");
+  return `<svg class="spark" viewBox="0 0 100 30" preserveAspectRatio="none" role="img" aria-label="${esc(title)}"><title>${esc(title)}</title>
+    <polygon points="0,30 ${pts} 100,30" fill="var(${color})" opacity=".13"/>
+    <polyline points="${pts}" fill="none" stroke="var(${color})" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>`;
+}
+
 // Hindsight values for the forecast window, only when the user asks for them
 function hindsight(ds, rows, show) {
   if (!show) return {};
@@ -81,13 +92,16 @@ function alertCard(a, tz, rows) {
 }
 
 // One quarter-hour of the coming hour: price, range, risks and direction
-function quarterCard(r, tz) {
+function quarterCard(r, tz, lo, hi) {
   const dirUp = r.up >= r.down;
   const spot = window.spotAt ? window.spotAt(r.t) : null;
+  const x = (v) => `${(Math.max(0, Math.min(1, (v - lo) / (hi - lo || 1))) * 100).toFixed(1)}%`;
   return `<div class="q">
     <div class="qt">${fmtTime(r.t, tz)}</div>
     <div class="qp">${eur(r.p50)}<small>€/MWh</small></div>
     <div class="qr">P10–P90 ${eur(r.p10)} to ${eur(r.p90)}${spot != null ? ` · spot ${eur(spot)}` : ""}</div>
+    <div class="qbar" title="P10–P90 range with the P50 marked${spot != null ? " and spot in amber" : ""}. Same scale for all four quarter-hours">
+      <i class="band" style="left:${x(r.p10)};right:calc(100% - ${x(r.p90)})"></i>${spot != null ? `<i class="sp" style="left:${x(spot)}"></i>` : ""}<i class="mid" style="left:${x(r.p50)}"></i></div>
     <div class="qb">
       <span style="background:${mix("--high", r.hi / 0.45)}" title="Chance of a spike more than 50 €/MWh above spot">▲ ${pct(r.hi)}</span>
       <span style="background:${mix("--low", r.lo / 0.55)}" title="Chance of a spike more than 50 €/MWh below spot">▼ ${pct(r.lo)}</span>
@@ -111,15 +125,18 @@ export function renderNow(root, ds, i) {
   for (let t = origin - 3 * HOUR; t < origin; t += Q) { const a = ds.outcome(t, origin); if (a) past.push([t, a.price]); }
   const recent = past.filter((p) => p[0] >= (past.length ? past[past.length - 1][0] : origin) - 2 * HOUR + Q);
   const lastKnown = past.length ? past[past.length - 1] : null;
+  const spots = window.spotAt ? hour.map((r) => window.spotAt(r.t)).filter((v) => v != null) : [];
+  const lowest = Math.min(...hour.map((r) => r.p10), ...spots), highest = Math.max(...hour.map((r) => r.p90), ...spots);
   root.innerHTML = `
-    <div class="card hero" style="--state:var(${st.color})">
-      <div class="state"><div class="badge">${st.icon}</div><div><div class="word">${st.word}</div><div class="why">${esc(st.why)}</div></div></div>
-      <div class="quarters">${hour.map((r) => quarterCard(r, tz)).join("")}</div>
+    <div class="card hero ${st.color === "--ok" ? "" : "alerting"}" style="--state:var(${st.color})">
+      <div class="state"><div class="badge">${st.icon}</div><div><div class="eyebrow">The coming hour · ${fmtTime(origin, tz)}–${fmtTime(origin + HOUR, tz)}</div><div class="word">${st.word}</div><div class="why">${esc(st.why)}</div></div></div>
+      <div class="quarters">${hour.map((r) => quarterCard(r, tz, lowest, highest)).join("")}</div>
     </div>
     <div class="tiles">
       <div class="card tile"><div class="label">Last published price ${info("The most recent actual imbalance price known at this moment. Prices are published with about an hour's delay.")}</div>
         <div class="big">${lastKnown ? eur(lastKnown[1]) : "–"}<small>€/MWh</small></div>
-        <div class="foot">${lastKnown ? `for ${fmtTime(lastKnown[0], tz)} · ${Math.round((origin - lastKnown[0]) / 60000)} min ago` : "none published yet"}</div></div>
+        <div class="foot">${lastKnown ? `for ${fmtTime(lastKnown[0], tz)} · ${Math.round((origin - lastKnown[0]) / 60000)} min ago` : "none published yet"}</div>
+        ${spark(past.map((p) => p[1]), "--text", "Published prices over the last 3 hours")}</div>
       <div class="card tile ${hi.hi >= 0.25 ? "accent-high" : ""}"><div class="label">▲ Spike risk above spot ${info("Highest chance this hour that the price is over 50 €/MWh above spot. The tick marks the typical level.")}</div>
         <div class="big">${pct(hi.hi)}</div><div class="foot">highest this hour, at ${fmtTime(hi.t, tz)} · typical ${pct(rates.high)}</div><div class="gauge" id="g-hi"></div></div>
       <div class="card tile ${lo.lo >= 0.35 ? "accent-high" : ""}"><div class="label">▼ Spike risk below spot ${info("Highest chance this hour that the price is over 50 €/MWh below spot.")}</div>
@@ -130,7 +147,8 @@ export function renderNow(root, ds, i) {
         <div class="foot">average this hour: up ${pct(up)} · down ${pct(down)} · none ${pct(none, 1)}</div></div>
       <div class="card tile"><div class="label">Uncertainty this hour ${info("Average width of the P10–P90 range for the coming hour. Wider means the model is less sure.")}</div>
         <div class="big">${eur(avg("p90") - avg("p10"))}<small>€ wide</small></div>
-        <div class="foot">average width this hour · lowest P10 ${eur(Math.min(...hour.map((r) => r.p10)))}, highest P90 ${eur(Math.max(...hour.map((r) => r.p90)))}</div></div>
+        <div class="foot">average width this hour · lowest P10 ${eur(Math.min(...hour.map((r) => r.p10)))}, highest P90 ${eur(Math.max(...hour.map((r) => r.p90)))}</div>
+        ${spark(rows.map((r) => r.p90 - r.p10), "--accent", "Width of the P10–P90 range over the next 10 hours")}</div>
     </div>
     <div class="grid split">
       <div class="card"><div class="card-head"><h2>Worth checking now</h2><span class="hint">${now.length ? "open a card for drivers and what to check" : ""}</span></div>
@@ -138,7 +156,7 @@ export function renderNow(root, ds, i) {
       `<div class="calm"><div class="badge">✓</div><b>Nothing for the coming hour</b></div>`}</div>
         ${later.length ? `<div class="card-head mt"><h2 class="muted">Later today</h2><button class="btn ghost" id="to-next">Next 10 h →</button></div>
           <div class="alerts">${later.map((a) => alertCard(a, tz, rows)).join("")}</div>` : ""}</div>
-      <div class="card"><div class="card-head"><h2>Recent prices → coming hours</h2><span class="hint">last 2 h published · prices appear about an hour late · forecast from now</span></div>
+      <div class="card fill"><div class="card-head"><h2>Recent prices → coming hours</h2><span class="hint">last 2 h published · prices appear about an hour late · forecast from now</span></div>
         <div class="chart tall" id="now-ctx"></div></div>
     </div>`;
   gaugeChart(document.getElementById("g-hi"), hi.hi, { color: hi.hi >= 0.25 ? c.high : c.muted, typical: rates.high });
@@ -325,6 +343,5 @@ export function renderAbout(root) {
           <tr><td><code>POST /api/jobs</code></td><td class="muted">forecast your files</td></tr>
         </tbody></table>
         <pre>curl "${host}/api/forecast?origin=2026-10-08T02:00:00Z"</pre></div>
-    </div>
-    <p class="hint" style="margin-top:14px">Contains data from Fingrid Open Data and the ENTSO-E Transparency Platform (CC BY 4.0).</p>`;
+    </div>`;
 }

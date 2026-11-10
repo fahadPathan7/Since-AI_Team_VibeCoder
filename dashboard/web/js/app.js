@@ -17,24 +17,64 @@ const store = (() => { try { return window.localStorage; } catch { return null; 
 const remember = (k, v) => { try { store?.setItem(k, v); } catch {} };
 const recall = (k) => { try { return store?.getItem(k); } catch { return null; } };
 
-window.state = { view: "now", tz: "Europe/Helsinki", reveal: false, showPrev: true, window: "week", datasets: [], ds: 0, i: 0, playing: null };
+window.state = { view: "now", tz: "Europe/Helsinki", reveal: false, showPrev: true, window: "week", datasets: [], ds: 0, i: 0, playing: null, speed: 1, animate: true };
 const S = window.state;
 const VIEWS = { now: renderNow, next: renderNext, hindsight: renderHindsight, run: renderRun, about: renderAbout };
 
 const $ = (id) => document.getElementById(id);
 
-// Light or dark theme, remembered per browser
+// Light or dark theme: ?theme= in the address, then the remembered choice, then the system setting
 function applyTheme(theme) {
-  if (theme) document.documentElement.dataset.theme = theme;
-  else delete document.documentElement.dataset.theme;
+  document.documentElement.dataset.theme = theme === "dark" ? "dark" : "light";
 }
-applyTheme(recall("theme"));
+const systemDark = window.matchMedia?.("(prefers-color-scheme: dark)").matches;
+applyTheme(new URLSearchParams(location.search).get("theme") || recall("theme") || (systemDark ? "dark" : "light"));
 $("theme").onclick = () => {
   const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
   applyTheme(next); remember("theme", next); render();
 };
 
 const current = () => S.datasets[S.ds];
+
+// A spike-risk alert that covers the coming hour at an origin, so the Now view is not calm there
+function spikeNow(ds, k, kind) {
+  return ds.alerts(k).find((a) => a.kind === kind && a.start < ds.origins[k] + HOUR);
+}
+
+// Spike risk in the coming hour at each origin: 1 = above spot, 0 = below spot, with the peak as weight
+function alertHeat(ds) {
+  ds.heat ||= ds.origins.map((_, k) => {
+    const hi = spikeNow(ds, k, "spike_high"), lo = spikeNow(ds, k, "spike_low");
+    return hi ? [1, Math.min(1, hi.peak / 0.5)] : lo ? [0, Math.min(1, lo.peak / 0.6)] : null;
+  });
+  return ds.heat;
+}
+
+// Ribbon above the time slider: where in the period alerts were raised
+let ribbonKey = "";
+function ribbon(ds) {
+  const cv = $("ribbon"), w = cv.clientWidth, h = cv.clientHeight, theme = document.documentElement.dataset.theme;
+  const key = `${S.ds}:${w}:${theme}`;
+  if (!w || key === ribbonKey) return;
+  ribbonKey = key;
+  const dpr = window.devicePixelRatio || 1, css = getComputedStyle(document.documentElement);
+  const color = ["--low", "--high"].map((n) => css.getPropertyValue(n).trim());
+  cv.width = w * dpr; cv.height = h * dpr;
+  const g = cv.getContext("2d");
+  g.scale(dpr, dpr);
+  const n = ds.origins.length, pad = 7, span = w - 2 * pad, bar = Math.max(1.5, span / n + 0.5);
+  const x = (k) => pad + (k / Math.max(1, n - 1)) * span;
+  alertHeat(ds).forEach((v, k) => {
+    if (!v) return;
+    g.globalAlpha = 0.35 + 0.65 * v[1];
+    g.fillStyle = color[v[0]];
+    g.fillRect(x(k) - bar / 2, 0, bar, h);
+  });
+  g.globalAlpha = 1;
+  g.fillStyle = css.getPropertyValue("--text").trim();
+  for (let k = 1; k < n; k++) if (ds.raw.period?.[k] !== ds.raw.period?.[k - 1]) g.fillRect(x(k) - 1, 0, 2, h);
+}
+window.addEventListener("resize", () => S.datasets.length && ribbon(current()));
 
 // Header: time control, freshness line and data set list
 function header() {
@@ -54,15 +94,26 @@ function header() {
     <span class="tag" title="${period ? period.model : "Final model"}">${kind === "upload" ? "Uploaded run · final model" : kind === "val" ? "Model trained to 6 Sep" : "Final model · trained to 4 Oct"}</span>`;
   $("dataset").innerHTML = S.datasets.map((d, k) => `<option value="${k}" ${k === S.ds ? "selected" : ""}>${d.label}</option>`).join("");
   document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.view === S.view));
-  }
+  ribbon(ds);
+}
 
-// Draw the current view
+// Draw the current view. Cards and charts animate in only when the view changes, not on every time step
+let shown = "", enterTimer = null;
 function render() {
   if (!S.datasets.length) return;
   header();
   disposeAll();
   const root = $("view");
   const ds = current();
+  S.animate = shown !== S.view && !S.playing;
+  shown = S.view;
+  if (S.animate) {
+    clearTimeout(enterTimer);
+    root.classList.remove("enter");
+    void root.offsetWidth;
+    root.classList.add("enter");
+    enterTimer = setTimeout(() => root.classList.remove("enter"), 900);
+  }
   Promise.resolve(VIEWS[S.view](root, ds, S.i)).catch((e) => { root.innerHTML = `<div class="card error">Something went wrong: ${e.message}</div>`; console.error(e); });
   const iso = new Date(ds.origins[S.i]).toISOString().slice(0, 16);
   history.replaceState(null, "", `#${S.view}/${iso}`);
@@ -88,15 +139,40 @@ document.querySelectorAll("[data-shift]").forEach((b) => (b.onclick = () => shif
 $("origin-slider").oninput = (e) => moveTo(Number(e.target.value));
 document.querySelectorAll("#tabs button").forEach((b) => (b.onclick = () => { S.view = b.dataset.view; render(); }));
 $("dataset").onchange = (e) => { S.ds = Number(e.target.value); S.i = Math.min(S.i, current().origins.length - 1); render(); };
-$("play").onclick = () => {
-  if (S.playing) { clearInterval(S.playing); S.playing = null; $("play").textContent = "▶ Replay"; return; }
-  $("play").textContent = "❚❚ Pause";
-  S.playing = setInterval(() => { if (S.i >= current().origins.length - 1) $("play").click(); else moveTo(S.i + 1); }, 900);
+
+// Replay: step forward one origin at a time, at 1, 2 or 4 steps per second
+function replay(on) {
+  clearInterval(S.playing);
+  S.playing = on ? setInterval(() => { if (S.i >= current().origins.length - 1) replay(false); else moveTo(S.i + 1); }, 900 / S.speed) : null;
+  $("play").textContent = on ? "❚❚ Pause" : "▶ Replay";
+  document.body.classList.toggle("playing", on);
+}
+$("play").onclick = () => replay(!S.playing);
+$("speed").onclick = () => {
+  S.speed = { 1: 2, 2: 4, 4: 1 }[S.speed];
+  $("speed").textContent = `${S.speed}×`;
+  if (S.playing) replay(true);
 };
+
+// Jump to the next (or previous) time a spike-risk alert starts to cover the coming hour
+function jumpToAlert(dir) {
+  const ds = current();
+  const hot = (k) => k >= 0 && Boolean(spikeNow(ds, k, "spike_high") || spikeNow(ds, k, "spike_low"));
+  for (let k = S.i + dir; k >= 0 && k < ds.origins.length; k += dir) if (hot(k) && !hot(k - 1)) return moveTo(k);
+  const b = $("next-alert");
+  b.classList.remove("none"); void b.offsetWidth; b.classList.add("none");
+}
+$("next-alert").onclick = (e) => jumpToAlert(e.shiftKey ? -1 : 1);
+
 document.addEventListener("keydown", (e) => {
-  if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+  if (["INPUT", "SELECT", "TEXTAREA"].includes(e.target.tagName) || e.metaKey || e.ctrlKey || e.altKey) return;
+  const view = Object.keys(VIEWS)[Number(e.key) - 1];
   if (e.key === "ArrowLeft") shift(e.shiftKey ? -24 : -1);
-  if (e.key === "ArrowRight") shift(e.shiftKey ? 24 : 1);
+  else if (e.key === "ArrowRight") shift(e.shiftKey ? 24 : 1);
+  else if (e.key === " " && e.target.tagName !== "BUTTON") { e.preventDefault(); replay(!S.playing); }
+  else if (e.key.toLowerCase() === "n") jumpToAlert(e.shiftKey ? -1 : 1);
+  else if (e.key.toLowerCase() === "t") $("theme").click();
+  else if (view) { S.view = view; render(); }
 });
 
 // Add a data set, such as an uploaded run, and switch to it
@@ -110,7 +186,8 @@ window.addDataset = (raw, label) => {
 
 // Load the precomputed periods and restore the view and time from the address
 async function start() {
-  $("view").innerHTML = `<div class="card">Loading forecasts…</div>`;
+  $("view").innerHTML = `<div class="skeleton" aria-label="Loading forecasts"><div style="height:150px"></div>
+    <div class="s-row">${`<div style="height:160px"></div>`.repeat(5)}</div><div style="height:380px"></div></div>`;
   const [raw, spot] = await Promise.all([
     fetch("data/dashboard.json").then((r) => r.json()),
     fetch("api/spot").then((r) => (r.ok ? r.json() : null)).catch(() => null),
